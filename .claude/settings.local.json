@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npm ls:*)",
+      "Bash(grep -rn \"from '.*store'\" \"C:/Users/Ololade Olaniran/OneDrive/Desktop/DIRECTRENT.NG/apps/tenant/app/\\(tabs\\)/index.tsx\")"
+    ]
+  }
+}

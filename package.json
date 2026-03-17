@@ -1,0 +1,34 @@
+{
+  "name": "directrent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Directrent.ng — Direct landlord-tenant rental platform for Lagos, Nigeria",
+  "workspaces": [
+    "apps/tenant",
+    "apps/landlord",
+    "packages/shared",
+    "firebase/functions"
+  ],
+  "scripts": {
+    "start:tenant": "npm run start --workspace=apps/tenant",
+    "start:landlord": "npm run start --workspace=apps/landlord",
+    "ios:tenant": "npm run ios --workspace=apps/tenant",
+    "ios:landlord": "npm run ios --workspace=apps/landlord",
+    "android:tenant": "npm run android --workspace=apps/tenant",
+    "android:landlord": "npm run android --workspace=apps/landlord",
+    "test": "jest",
+    "lint": "eslint . --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit",
+    "build:shared": "npm run build --workspace=packages/shared",
+    "build:functions": "npm run build --workspace=firebase/functions",
+    "build:tenant:preview": "eas build --platform android --profile preview --profile-dir apps/tenant",
+    "build:landlord:preview": "eas build --platform android --profile preview --profile-dir apps/landlord",
+    "build:tenant:prod": "eas build --platform all --profile production --profile-dir apps/tenant",
+    "build:landlord:prod": "eas build --platform all --profile production --profile-dir apps/landlord",
+    "submit:tenant": "eas submit --platform all --profile production --profile-dir apps/tenant",
+    "submit:landlord": "eas submit --platform all --profile production --profile-dir apps/landlord"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

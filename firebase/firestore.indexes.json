@@ -1,0 +1,60 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "properties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status.listing", "order": "ASCENDING" },
+        { "fieldPath": "status.availability", "order": "ASCENDING" },
+        { "fieldPath": "publishedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "properties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status.listing", "order": "ASCENDING" },
+        { "fieldPath": "status.availability", "order": "ASCENDING" },
+        { "fieldPath": "location.area", "order": "ASCENDING" },
+        { "fieldPath": "publishedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "properties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status.listing", "order": "ASCENDING" },
+        { "fieldPath": "status.availability", "order": "ASCENDING" },
+        { "fieldPath": "pricing.annualRent", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "properties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status.listing", "order": "ASCENDING" },
+        { "fieldPath": "status.featured", "order": "ASCENDING" },
+        { "fieldPath": "publishedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "properties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "landlordId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "properties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status.listing", "order": "ASCENDING" },
+        { "fieldPath": "status.availability", "order": "ASCENDING" },
+        { "fieldPath": "location.area", "order": "ASCENDING" },
+        { "fieldPath": "pricing.annualRent", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

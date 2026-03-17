@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "772111883747",
+    "project_id": "directrent-ng",
+    "storage_bucket": "directrent-ng.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:772111883747:android:c92256641b9ad78abc54d6",
+        "android_client_info": {
+          "package_name": "ng.directrent.tenant"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBUSBH_eVwbqocVKXaqttP6hOprxKTfyfY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

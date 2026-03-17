@@ -1,0 +1,174 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isVerified() {
+      let data = getUserData();
+      return data.verification.bvn.status == 'verified'
+          || data.verification.nin.status == 'verified';
+    }
+
+    function isTenant() {
+      return getUserData().userType == 'tenant';
+    }
+
+    function isLandlord() {
+      return getUserData().userType == 'landlord';
+    }
+
+    // ── Users ────────────────────────────────────────────────────────────────
+    // Created by onUserCreated Cloud Function trigger (no client create needed).
+    // Updated by the createProfile callable and the user themselves.
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);          // Fallback; normally created by CF
+      allow update: if isOwner(userId);
+      allow delete: if false;                    // Soft delete only via Cloud Functions
+    }
+
+    // ── Tenants ──────────────────────────────────────────────────────────────
+
+    match /tenants/{tenantId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(tenantId);        // Client-side profile creation
+      allow update: if isOwner(tenantId);
+      allow delete: if false;
+    }
+
+    // ── Landlords ────────────────────────────────────────────────────────────
+
+    match /landlords/{landlordId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(landlordId);      // Client-side profile creation
+      allow update: if isOwner(landlordId);
+      allow delete: if false;
+    }
+
+    // ── Properties ──────────────────────────────────────────────────────────
+    // Public read; only verified landlords can create/edit their own listings.
+
+    match /properties/{propertyId} {
+      allow read: if true;
+      allow create: if isAuthenticated()
+                    && isLandlord()
+                    && isVerified()
+                    && request.resource.data.landlordId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && resource.data.landlordId == request.auth.uid;
+      allow delete: if isAuthenticated()
+                    && resource.data.landlordId == request.auth.uid;
+    }
+
+    // ── Applications ─────────────────────────────────────────────────────────
+    // Only visible to the tenant and landlord involved.
+    // Only verified tenants can create applications.
+
+    match /applications/{applicationId} {
+      allow read: if isAuthenticated()
+                  && (resource.data.tenantId == request.auth.uid
+                      || resource.data.landlordId == request.auth.uid);
+      allow create: if isAuthenticated()
+                    && isTenant()
+                    && isVerified()
+                    && request.resource.data.tenantId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && (resource.data.tenantId == request.auth.uid
+                        || resource.data.landlordId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // ── Conversations ────────────────────────────────────────────────────────
+
+    match /conversations/{conversationId} {
+      allow read: if isAuthenticated()
+                  && (resource.data.landlordId == request.auth.uid
+                      || resource.data.tenantId == request.auth.uid);
+      allow create: if isAuthenticated() && isVerified();
+      allow update: if isAuthenticated()
+                    && (resource.data.landlordId == request.auth.uid
+                        || resource.data.tenantId == request.auth.uid);
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated()
+                    && (get(/databases/$(database)/documents/conversations/$(conversationId))
+                          .data.landlordId == request.auth.uid
+                        || get(/databases/$(database)/documents/conversations/$(conversationId))
+                          .data.tenantId == request.auth.uid);
+        allow create: if isAuthenticated()
+                      && isVerified()
+                      && request.resource.data.senderId == request.auth.uid;
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+
+    // ── Payments ─────────────────────────────────────────────────────────────
+    // Read-only from client; all writes via Cloud Functions only.
+
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated()
+                  && (resource.data.tenantId == request.auth.uid
+                      || resource.data.landlordId == request.auth.uid);
+      allow write: if false;    // Cloud Functions only
+    }
+
+    // ── Leases ───────────────────────────────────────────────────────────────
+
+    match /leases/{leaseId} {
+      allow read: if isAuthenticated()
+                  && (resource.data.tenantId == request.auth.uid
+                      || resource.data.landlordId == request.auth.uid);
+      allow write: if false;    // Cloud Functions only
+    }
+
+    // ── Reviews ──────────────────────────────────────────────────────────────
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated()
+                    && isVerified()
+                    && request.resource.data.reviewerId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && (resource.data.reviewerId == request.auth.uid
+                        || resource.data.revieweeId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // ── Verification logs (audit trail) ─────────────────────────────────────
+
+    match /verificationLogs/{logId} {
+      allow read: if false;     // Admin only
+      allow write: if false;    // Cloud Functions only
+    }
+
+    // ── Property views (analytics events) ───────────────────────────────────
+
+    match /propertyViews/{viewId} {
+      allow read: if false;     // Cloud Functions only
+      allow write: if false;    // Cloud Functions only
+    }
+
+    // ── Daily reports (aggregated analytics) ────────────────────────────────
+
+    match /dailyReports/{reportId} {
+      allow read: if false;     // Cloud Functions only
+      allow write: if false;    // Cloud Functions only
+    }
+  }
+}

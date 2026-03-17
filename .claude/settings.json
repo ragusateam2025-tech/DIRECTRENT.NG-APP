@@ -1,0 +1,109 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(npx tsc *)",
+      "Bash(npx expo *)",
+      "Bash(firebase emulators:*)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(mkdir *)",
+      "Bash(ls *)"
+    ]
+  },
+  "agentTeams": {
+    "enabled": true,
+    "teams": {
+      "frontend-tenant": {
+        "description": "Tenant app UI/UX implementation — screens, components, navigation, and state management for the tenant-facing Expo app",
+        "claudeMdPaths": [
+          "CLAUDE.md",
+          "apps/tenant/CLAUDE.md"
+        ],
+        "workingDirectory": "apps/tenant",
+        "allowedTools": ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],
+        "context": [
+          "packages/shared/src/**/*",
+          "apps/tenant/**/*"
+        ]
+      },
+      "frontend-landlord": {
+        "description": "Landlord app UI/UX implementation — screens, components, navigation, and state management for the landlord-facing Expo app",
+        "claudeMdPaths": [
+          "CLAUDE.md",
+          "apps/landlord/CLAUDE.md"
+        ],
+        "workingDirectory": "apps/landlord",
+        "allowedTools": ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],
+        "context": [
+          "packages/shared/src/**/*",
+          "apps/landlord/**/*"
+        ]
+      },
+      "backend": {
+        "description": "Firebase Cloud Functions, Firestore rules, storage rules, and database schema design",
+        "claudeMdPaths": [
+          "CLAUDE.md",
+          "firebase/CLAUDE.md"
+        ],
+        "workingDirectory": "firebase",
+        "allowedTools": ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],
+        "context": [
+          "packages/shared/src/types/**/*",
+          "firebase/**/*"
+        ]
+      },
+      "payments": {
+        "description": "Paystack payment integration, escrow flow, transaction processing, and fee calculations",
+        "claudeMdPaths": [
+          "CLAUDE.md",
+          "firebase/CLAUDE.md"
+        ],
+        "workingDirectory": "firebase/functions",
+        "allowedTools": ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],
+        "context": [
+          "packages/shared/src/types/**/*",
+          "packages/shared/src/constants/**/*",
+          "firebase/functions/src/payments/**/*",
+          "firebase/firestore.rules"
+        ]
+      },
+      "verification": {
+        "description": "BVN/NIN identity verification via VerifyMe API, user trust scoring, and verification status management",
+        "claudeMdPaths": [
+          "CLAUDE.md",
+          "firebase/CLAUDE.md"
+        ],
+        "workingDirectory": "firebase/functions",
+        "allowedTools": ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],
+        "context": [
+          "packages/shared/src/types/user.ts",
+          "packages/shared/src/types/common.ts",
+          "packages/shared/src/constants/validation.ts",
+          "firebase/functions/src/verification/**/*",
+          "firebase/functions/src/auth/**/*"
+        ]
+      },
+      "shared": {
+        "description": "Shared TypeScript types, utilities, constants, hooks, and design system components used across both apps",
+        "claudeMdPaths": [
+          "CLAUDE.md",
+          "packages/shared/CLAUDE.md"
+        ],
+        "workingDirectory": "packages/shared",
+        "allowedTools": ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],
+        "context": [
+          "packages/shared/**/*",
+          "packages/design-system/**/*"
+        ]
+      }
+    }
+  }
+}
