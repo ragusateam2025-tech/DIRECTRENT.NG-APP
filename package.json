@@ -10,6 +10,7 @@
     "firebase/functions"
   ],
   "scripts": {
+    "eas-build-pre-install": "npm install -g npm@latest",
     "start:tenant": "npm run start --workspace=apps/tenant",
     "start:landlord": "npm run start --workspace=apps/landlord",
     "ios:tenant": "npm run ios --workspace=apps/tenant",
