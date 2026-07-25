@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mv:*)",
+      "Bash(npx create-expo-app@latest . --template blank-typescript --yes)",
+      "Read(//c/Projects/**)",
+      "Bash(npx create-expo-app@latest directrent-temp --template blank-typescript --yes)",
+      "Bash(cp -r directrent-temp/* \"directrent.ng-app2/\")",
+      "Bash(cp directrent-temp/.gitignore \"directrent.ng-app2/\")",
+      "Bash(rm -rf directrent-temp)",
+      "Bash(cp \"C:/Projects/directrent-temp/package.json\" \"C:/Projects/directrent-temp/package-lock.json\" \"C:/Projects/directrent-temp/tsconfig.json\" \"C:/Projects/directrent.ng-app2/\")",
+      "Bash(cp \"C:/Projects/directrent-temp/.gitignore\" \"C:/Projects/directrent.ng-app2/\")",
+      "Bash(npx expo:*)",
+      "Bash(npm install:*)",
+      "Bash(adb devices:*)",
+      "Bash(where adb.exe)",
+      "Bash(cmd.exe /c \"where adb\")",
+      "Bash(cmd.exe /c \"echo %ANDROID_HOME%\")",
+      "Bash(cmd.exe /c \"echo %ANDROID_SDK_ROOT%\")",
+      "Bash(cmd.exe:*)",
+      "Bash(powershell.exe -Command \"[System.Environment]::GetEnvironmentVariable\\('ANDROID_HOME','User'\\)\")",
+      "Bash(powershell.exe -Command \"[System.Environment]::GetEnvironmentVariable\\('ANDROID_HOME','Machine'\\)\")",
+      "Bash(tasklist)",
+      "Bash(wmic process:*)",
+      "Bash(adb kill-server:*)",
+      "Bash(adb start-server:*)",
+      "Bash(C:/Users/Ololade Olaniran/AppData/Local/Android/Sdk/cmake/3.22.1/bin/cmake.exe:*)",
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(./gradlew.bat clean:*)",
+      "Bash(taskkill //F //IM java.exe)",
+      "Bash(taskkill //F //IM gradle.exe)",
+      "Bash(rm:*)",
+      "Bash(taskkill //F //IM adb.exe)",
+      "Bash(handle.exe \"C:\\\\Projects\\\\directrent.ng-app2\\\\android\")",
+      "Bash(powershell:*)",
+      "Bash(./gradlew.bat app:assembleDebug --stacktrace)",
+      "Bash(./gradlew.bat app:assembleDebug -x lint -x test --configure-on-demand --build-cache -PreactNativeArchitectures=arm64-v8a)",
+      "Bash(./gradlew.bat app:assembleDebug -x lint -x test --configure-on-demand --build-cache -PreactNativeArchitectures=arm64-v8a --stacktrace)"
+    ]
+  }
+}
