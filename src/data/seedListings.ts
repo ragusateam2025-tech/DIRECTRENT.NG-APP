@@ -4,21 +4,23 @@ import type { Listing } from '../types';
  * Bundled property images, keyed by Listing.media.photoKey.
  *
  * require() paths must be static — React Native resolves them at build time,
- * so these cannot be built from a variable. Every value is undefined until the
- * real photographs are dropped into assets/properties/, at which point each
- * line becomes require('../../assets/properties/property-N.jpg').
+ * so these cannot be built from a variable.
  *
- * While a value is undefined, PropertyCard and ListingDetailScreen render a
- * branded placeholder instead. Bundling (rather than fetching) means images
- * never depend on the network during a demo.
+ * Sources: Pexels, licensed for commercial use with no attribution required.
+ * These are placeholders for real Lagos property photography — swap the files
+ * in assets/properties/ and the keys below stay the same.
+ *
+ * Bundling rather than fetching means images never depend on the network,
+ * so a demo cannot be undone by bad venue wifi. If a value is undefined,
+ * PropertyCard and ListingDetailScreen fall back to a branded placeholder.
  */
 export const PROPERTY_IMAGES: Record<string, number | undefined> = {
-  'property-1': undefined,
-  'property-2': undefined,
-  'property-3': undefined,
-  'property-4': undefined,
-  'property-5': undefined,
-  'property-6': undefined,
+  'property-1': require('../../assets/properties/property-1.jpg'),
+  'property-2': require('../../assets/properties/property-2.jpg'),
+  'property-3': require('../../assets/properties/property-3.jpg'),
+  'property-4': require('../../assets/properties/property-4.jpg'),
+  'property-5': require('../../assets/properties/property-5.jpg'),
+  'property-6': require('../../assets/properties/property-6.jpg'),
 };
 
 export const SEED_LISTINGS: Listing[] = [
