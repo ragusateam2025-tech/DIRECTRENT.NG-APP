@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, typography, spacing, radius } from '../theme/tokens';
 import Button from '../components/Button';
 import { useAuth } from '../context/AuthContext';
-import { seedListings } from '../../scripts/seed';
 import type { UserRole } from '../types';
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -15,21 +14,8 @@ const ROLE_LABELS: Record<UserRole, string> = {
 
 export default function ProfileScreen() {
   const { profile, logOut, setRole } = useAuth();
-  const [seeding, setSeeding] = useState(false);
 
   if (!profile) return null;
-
-  async function handleSeed() {
-    setSeeding(true);
-    try {
-      const count = await seedListings();
-      Alert.alert('Seeded', `${count} properties written to Firestore.`);
-    } catch (err: any) {
-      Alert.alert('Seeding failed', err?.message ?? 'Unknown error');
-    } finally {
-      setSeeding(false);
-    }
-  }
 
   return (
     <SafeAreaView style={styles.wrapper}>
@@ -59,15 +45,6 @@ export default function ProfileScreen() {
             </Pressable>
           ))}
         </View>
-
-        {/* Demo tool — removed before the client sees the app (plan Task 14). */}
-        <Text style={styles.sectionHeading}>Demo tools</Text>
-        <Button
-          label="Seed demo listings"
-          variant="secondary"
-          onPress={handleSeed}
-          loading={seeding}
-        />
 
         <View style={styles.logout}>
           <Button label="Log out" onPress={logOut} />
