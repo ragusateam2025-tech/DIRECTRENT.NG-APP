@@ -167,20 +167,38 @@ built for the tenant slice already works and needs no change.
 
 | Screen | Purpose |
 |--------|---------|
-| **My Properties** | The landlord's listings with status badges (Pending / Active / Rented). Empty state invites the first upload. |
+| **My Properties** | The landlord's listings with status badges (Draft / Pending / Active / Rented). Empty state invites the first upload. |
 | **Add Property** wizard | Five steps: basic info → location → photos → pricing → details. Progress indicator, back navigation, validation gating each step. |
 | **Photo step** | Pick from gallery or camera. Minimum five. Reorder, set primary, delete. Per-photo upload progress. |
 | **Listing Preview** | Exactly what a tenant will see, shown before publishing. |
 
-### 6.1 Cut from `FEATURE_SPEC_PART2`
+### 6.1 Drafts
+
+A landlord uploading five photos over Lagos mobile data may lose the app,
+the connection, or the battery partway through. Losing the form at that point
+is the kind of friction that stops a pilot landlord coming back.
+
+**A draft document is created in Firestore as soon as step 1 is valid**, with
+`status.listing == 'draft'`. From that moment every step writes through to it,
+so progress survives the app being killed.
+
+- Leaving the wizard prompts "Save as draft?" — saving keeps the document,
+  discarding deletes it and its uploaded photos.
+- My Properties lists drafts first, badged "Draft", with a "Continue" action
+  that reopens the wizard at the furthest completed step.
+- Publishing validates the whole listing, then flips `status.listing` to
+  `'pending'`. A draft can never reach tenants: §3 restricts tenant reads to
+  `active`.
+
+This also simplifies photo handling — see §7.
+
+### 6.2 Cut from `FEATURE_SPEC_PART2`
 
 - **Market price comparison.** It displays an area average and comparable
   count. With a pilot's handful of properties those figures would be derived
   from too little data and would mislead. Revisit once there is inventory.
 - **Map pin confirmation.** Needs a maps dependency and API key. Typed address
   plus area selection is sufficient for a pilot.
-- **Save as draft.** Deferred deliberately, but see §11 — this is the first
-  thing to add if landlords report losing progress.
 
 ---
 
@@ -197,13 +215,21 @@ better quality but requires the Blaze billing plan, adds per-upload server
 cost, and still makes the landlord push 25 MB over a weak connection first. For
 a pilot, client-side compression wins.
 
+Drafts (§6.1) make this materially safer. The listing's document ID is
+generated **before** the wizard starts, so photos have a home from the first
+step and upload as they are picked, rather than in one batch at the end.
+
 Rules:
 
 - Photos upload one at a time, with visible per-photo progress
 - A failed photo is retryable without restarting the form
 - Uploads land in `listings/{ownerId}/{listingId}/{index}.jpg`
-- The listing document is written only after all photos have uploaded, so a
-  listing never references a missing image
+- Each successful upload appends its URL to the draft immediately, so a
+  killed app loses at most the one photo in flight
+- **Publishing** — not saving — is what enforces the five-photo minimum, so a
+  draft may legitimately hold fewer
+- A published listing therefore never references a missing image, because
+  publish validates the photo array before flipping status
 
 ---
 
@@ -260,18 +286,23 @@ Verified on the physical device, as with the tenant slice:
 5. Photos compress before upload; a five-photo listing transfers under 2 MB
    total.
 6. A failed photo upload can be retried without re-entering the form.
-7. Publishing creates a listing with `status.listing == 'pending'` and
-   `ownerId` equal to the landlord's uid.
-8. The listing appears in My Properties marked "Under review" and does **not**
-   appear in tenant Browse.
-9. After an administrator flips status to `active` in the console, the listing
-   appears in tenant Browse with its photos.
-10. A second landlord account cannot read, edit, or delete the first
-    landlord's pending listing.
-11. Tenant-side savings arithmetic is correct for the landlord's entered rent.
-12. Every naira figure uses the literal `₦` with comma formatting.
+7. Force-quitting the app mid-wizard and reopening it shows the listing in My
+   Properties badged "Draft", and "Continue" resumes at the furthest completed
+   step with previously uploaded photos intact.
+8. Discarding a draft deletes both its document and its uploaded photos.
+9. A draft is never visible to a tenant, at any stage.
+10. Publishing creates a listing with `status.listing == 'pending'` and
+    `ownerId` equal to the landlord's uid.
+11. The listing appears in My Properties marked "Under review" and does **not**
+    appear in tenant Browse.
+12. After an administrator flips status to `active` in the console, the listing
+    appears in tenant Browse with its photos.
+13. A second landlord account cannot read, edit, or delete the first
+    landlord's draft or pending listing.
+14. Tenant-side savings arithmetic is correct for the landlord's entered rent.
+15. Every naira figure uses the literal `₦` with comma formatting.
 
-Criterion 10 is the one that matters most. It is the difference between a
+Criterion 13 is the one that matters most. It is the difference between a
 demo and something real people can trust with their property.
 
 ---
@@ -281,8 +312,9 @@ demo and something real people can trust with their property.
 | Risk | Severity | Mitigation |
 |------|----------|------------|
 | Native rebuild fails again | High | Budget an hour; fixes already recorded in repo |
-| Photo upload fails on poor connection | High | Client-side compression, per-photo retry, listing written only after uploads succeed |
-| Landlord loses form progress mid-upload | Medium | Drafts deliberately cut; add first if reported |
+| Photo upload fails on poor connection | High | Client-side compression, per-photo retry, each upload appended to the draft immediately |
+| Landlord loses form progress mid-upload | Medium | Drafts write through from step 1; at most one in-flight photo is lost |
+| Abandoned drafts accumulate in Firestore and Storage | Low | Pilot volume makes this negligible; revisit with a cleanup job if it grows |
 | Demo listings deleted too early, app looks empty | Medium | Explicit ordering in §5.1 |
 | Storage costs grow unexpectedly | Low | 2 MB rule ceiling; compression targets ~300 KB |
 | Pilot expands to open signup without verification | High | §4 is explicit that open signup needs identity verification first |
