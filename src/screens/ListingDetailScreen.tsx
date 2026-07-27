@@ -1,0 +1,236 @@
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { colors, typography, spacing, radius } from '../theme/tokens';
+import Button from '../components/Button';
+import SavingsBreakdown from '../components/SavingsBreakdown';
+import { formatNaira } from '../lib/format';
+import { fetchListing } from '../services/listings';
+import { isSaved, toggleSaved } from '../services/saved';
+import { useAuth } from '../context/AuthContext';
+import { PROPERTY_IMAGES } from '../data/seedListings';
+import type { Listing } from '../types';
+import type { BrowseStackParams } from '../navigation/AppTabs';
+
+type Props = NativeStackScreenProps<BrowseStackParams, 'ListingDetail'>;
+
+export default function ListingDetailScreen({ route }: Props) {
+  const { listingId } = route.params;
+  const { profile } = useAuth();
+  const [listing, setListing] = useState<Listing | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    async function load() {
+      const result = await fetchListing(listingId);
+      if (!active) return;
+      setListing(result);
+
+      if (profile) {
+        try {
+          const savedState = await isSaved(profile.uid, listingId);
+          if (active) setSaved(savedState);
+        } catch {
+          // Non-fatal: the save state just shows as unsaved.
+        }
+      }
+
+      if (active) setLoading(false);
+    }
+
+    load();
+    return () => {
+      active = false;
+    };
+  }, [listingId, profile]);
+
+  async function handleToggleSave() {
+    if (!profile) return;
+    try {
+      const next = await toggleSaved(profile.uid, listingId);
+      setSaved(next);
+    } catch {
+      // Non-fatal during a demo — leave the current state alone.
+    }
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.centre}>
+        <ActivityIndicator size="large" color={colors.accentGold} />
+      </View>
+    );
+  }
+
+  if (!listing) {
+    return (
+      <View style={styles.centre}>
+        <Text style={styles.missing}>This property is no longer available.</Text>
+      </View>
+    );
+  }
+
+  const image = PROPERTY_IMAGES[listing.media.photoKey];
+
+  return (
+    <ScrollView style={styles.wrapper} contentContainerStyle={styles.content}>
+      {image ? (
+        <Image source={image} style={styles.image} resizeMode="cover" />
+      ) : (
+        <View style={styles.placeholder}>
+          <Text style={styles.placeholderArea}>{listing.location.area}</Text>
+        </View>
+      )}
+
+      <Text style={styles.title}>{listing.basicInfo.title}</Text>
+      <Text style={styles.address}>{listing.location.address}</Text>
+
+      <View style={styles.priceRow}>
+        <Text style={styles.rent}>{formatNaira(listing.pricing.annualRent)}</Text>
+        <Text style={styles.perYear}>/year</Text>
+      </View>
+
+      <View style={styles.facts}>
+        <Fact value={String(listing.basicInfo.bedrooms)} label="Bedrooms" />
+        <Fact value={String(listing.basicInfo.bathrooms)} label="Bathrooms" />
+        <Fact value={String(listing.details.maxOccupants)} label="Max occupants" />
+      </View>
+
+      <SavingsBreakdown annualRent={listing.pricing.annualRent} />
+
+      <Text style={styles.sectionHeading}>About this property</Text>
+      <Text style={styles.description}>{listing.details.description}</Text>
+
+      <Text style={styles.sectionHeading}>Amenities</Text>
+      <View style={styles.amenities}>
+        {listing.details.amenities.map(amenity => (
+          <View key={amenity} style={styles.amenityChip}>
+            <Text style={styles.amenityText}>{amenity}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.actions}>
+        <Button
+          label={saved ? '♥ Saved' : '♡ Save this property'}
+          variant="secondary"
+          onPress={handleToggleSave}
+        />
+      </View>
+    </ScrollView>
+  );
+}
+
+function Fact({ value, label }: { value: string; label: string }) {
+  return (
+    <View style={styles.fact}>
+      <Text style={styles.factValue}>{value}</Text>
+      <Text style={styles.factLabel}>{label}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrapper: { flex: 1, backgroundColor: colors.background },
+  content: { padding: spacing.md, paddingBottom: spacing['2xl'] },
+  centre: {
+    flex: 1,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  missing: {
+    color: colors.textSecondary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.base,
+  },
+  image: { width: '100%', height: 240, borderRadius: radius.lg },
+  placeholder: {
+    width: '100%',
+    height: 240,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderArea: {
+    color: colors.accentGold,
+    fontFamily: typography.families.display,
+    fontSize: typography.sizes['3xl'],
+  },
+  title: {
+    color: colors.textPrimary,
+    fontFamily: typography.families.display,
+    fontSize: typography.sizes['2xl'],
+    marginTop: spacing.md,
+  },
+  address: {
+    color: colors.textSecondary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    marginTop: spacing.xs,
+  },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: spacing.md },
+  rent: {
+    color: colors.textPrimary,
+    fontFamily: typography.families.display,
+    fontSize: typography.sizes['3xl'],
+  },
+  perYear: {
+    color: colors.textMuted,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.base,
+    marginLeft: spacing.xs,
+  },
+  facts: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: colors.backgroundPaper,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  fact: { alignItems: 'center', flex: 1 },
+  factValue: {
+    color: colors.textPrimary,
+    fontFamily: typography.families.display,
+    fontSize: typography.sizes.xl,
+  },
+  factLabel: {
+    color: colors.textMuted,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.xs,
+    marginTop: spacing.xs,
+  },
+  sectionHeading: {
+    color: colors.textPrimary,
+    fontFamily: typography.families.heading,
+    fontSize: typography.sizes.lg,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  description: {
+    color: colors.textSecondary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.base,
+    lineHeight: 24,
+  },
+  amenities: { flexDirection: 'row', flexWrap: 'wrap' },
+  amenityChip: {
+    backgroundColor: colors.backgroundElevated,
+    borderRadius: radius.sm,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    marginRight: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  amenityText: {
+    color: colors.textSecondary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.xs,
+  },
+  actions: { marginTop: spacing.lg },
+});

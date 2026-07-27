@@ -1,36 +1,19 @@
-import firebase from '@react-native-firebase/app';
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import { getApp } from '@react-native-firebase/app';
+import { getAuth } from '@react-native-firebase/auth';
+import { getFirestore } from '@react-native-firebase/firestore';
 
-// Re-export instances for use throughout the app
-export { auth, firestore };
+/** The default Firebase app, configured from google-services.json. */
+export const app = getApp();
 
-/**
- * Tests Firestore connectivity by writing and reading a health-check document.
- * Returns true on success, throws a descriptive error on failure.
- */
-export async function testFirestoreConnection(): Promise<boolean> {
-  const docRef = firestore().collection('_health').doc('connectivity');
+/** Auth instance — use with modular functions from @react-native-firebase/auth. */
+export const auth = getAuth(app);
 
-  await docRef.set({
-    ping: 'ok',
-    timestamp: firestore.FieldValue.serverTimestamp(),
-  });
+/** Firestore instance — use with modular functions from @react-native-firebase/firestore. */
+export const db = getFirestore(app);
 
-  const snapshot = await docRef.get();
-
-  if (!snapshot.exists || snapshot.data()?.ping !== 'ok') {
-    throw new Error(
-      'Health check document was written but could not be read back correctly.'
-    );
-  }
-
-  return true;
-}
-
-/**
- * Returns the Firebase project ID from the default app config.
- */
-export function getProjectId(): string {
-  return firebase.app().options.projectId ?? 'unknown';
-}
+/** Firestore collection names, in one place so they cannot drift. */
+export const COLLECTIONS = {
+  users: 'users',
+  listings: 'listings',
+  saved: 'saved',
+} as const;

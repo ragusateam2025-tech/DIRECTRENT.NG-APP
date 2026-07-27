@@ -37,7 +37,8 @@
       "Bash(powershell:*)",
       "Bash(./gradlew.bat app:assembleDebug --stacktrace)",
       "Bash(./gradlew.bat app:assembleDebug -x lint -x test --configure-on-demand --build-cache -PreactNativeArchitectures=arm64-v8a)",
-      "Bash(./gradlew.bat app:assembleDebug -x lint -x test --configure-on-demand --build-cache -PreactNativeArchitectures=arm64-v8a --stacktrace)"
+      "Bash(./gradlew.bat app:assembleDebug -x lint -x test --configure-on-demand --build-cache -PreactNativeArchitectures=arm64-v8a --stacktrace)",
+      "Bash(./android/gradlew --stop)"
     ]
   }
 }
