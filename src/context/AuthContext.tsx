@@ -6,7 +6,7 @@ import {
   onAuthStateChanged,
   updateProfile,
 } from '@react-native-firebase/auth';
-import { doc, getDoc, setDoc } from '@react-native-firebase/firestore';
+import { doc, getDoc, getDocFromServer, setDoc } from '@react-native-firebase/firestore';
 import { auth, db, COLLECTIONS } from '../lib/firebase';
 import type { UserProfile, UserRole } from '../types';
 
@@ -47,6 +47,8 @@ export function friendlyAuthError(code: string): string {
       return 'No internet connection. Check your network and try again.';
     case 'auth/too-many-requests':
       return 'Too many attempts. Wait a moment and try again.';
+    case 'app/database-unreachable':
+      return 'Account created, but the database rejected it. Check your Firestore security rules.';
     default:
       return 'Something went wrong. Please try again.';
   }
@@ -115,7 +117,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       createdAt: Date.now(),
     };
 
-    await setDoc(doc(db, COLLECTIONS.users, credential.user.uid), fresh);
+    const ref = doc(db, COLLECTIONS.users, credential.user.uid);
+    await setDoc(ref, fresh);
+
+    // setDoc resolves as soon as the write hits the local cache — a rules
+    // rejection arrives later as a background warning, so signup would appear
+    // to succeed against a locked database. Read back from the server to
+    // confirm the write actually landed before we treat the account as usable.
+    try {
+      await getDocFromServer(ref);
+    } catch {
+      const error: any = new Error('Profile write was rejected by the server.');
+      error.code = 'app/database-unreachable';
+      throw error;
+    }
+
     setProfile(fresh);
   }
 
