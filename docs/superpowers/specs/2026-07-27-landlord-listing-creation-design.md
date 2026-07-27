@@ -258,14 +258,48 @@ Viewer](https://photo-sphere-viewer.js.org/) and Panolens are both MIT-licensed
 and render acceptably inside a WebView.
 
 **The blocker is not the viewer — it is the photographs.** These libraries
-display *equirectangular* images, which require either a 360 camera (Ricoh
-Theta, Insta360) or a phone app that stitches a panorama. A pilot landlord
-uploading ordinary phone photos produces nothing a 360 viewer can show.
+display *equirectangular* images, which require a 360 camera or a phone app
+that stitches a panorama. A landlord uploading ordinary phone photos produces
+nothing a 360 viewer can show.
 
-Before this is scheduled, one question needs a real answer: **how does a
-landlord in Surulere capture a 360 photo?** Options include lending cameras to
-pilot landlords, sending a photographer, or accepting guided phone panoramas.
-That is an operations decision, not an engineering one.
+### 9.1 Capture model (decided)
+
+Subject to funding, capture is **centralised, not crowdsourced**: the company
+buys a 360 camera and a laptop, and employs a trained operator who visits
+listings judged worth the trip and shoots the full apartment. Lagos-only
+operation makes this practical.
+
+This is the stronger model, and it simplifies the build considerably:
+
+- One camera, one operator, one process — consistent quality and guaranteed
+  equirectangular output
+- **No capture UX in the app.** Landlords never shoot, upload, or troubleshoot
+  a panorama, so there is nothing to validate or reject
+- Tours attach to a listing through an administrator, not the landlord
+- Tours become a quality signal on selected inventory rather than a universal
+  requirement, so `virtualTourUrl` stays optional and the no-tour path stays
+  the default
+
+### 9.2 Open questions before this is scheduled
+
+**Linked tour or single sphere?** "The full apartment" implies one panorama per
+room, connected by hotspots so a tenant can walk between them. Photo Sphere
+Viewer's virtual-tour plugin supports linked nodes, but this adds a node graph,
+hotspot authoring, and an assembly step to the operator's job. A single
+sphere per listing is far simpler and may be enough to start.
+
+**Payload size is the hard constraint, and it is a Lagos constraint.** A good
+equirectangular frame is 6000×3000 and 3–8 MB; six rooms exceeds 30 MB. That is
+the same mobile-data problem that drove listing photos down to ~300 KB (§7),
+an order of magnitude worse. Mitigations: cap panoramas at 4096×2048, load
+rooms on demand rather than upfront, and show a low-resolution preview first.
+The tour will remain the heaviest thing in the app.
+
+**Hosting.** Self-hosting (panoramas in Firebase Storage, rendered by Photo
+Sphere Viewer in a WebView) fits a team investing in owning the capability, and
+avoids a subscription and an external dependency. Third-party hosts (Kuula,
+Momento360) need almost no engineering but put the tours on someone else's
+platform. Recommendation: self-host. `virtualTourUrl` accommodates either.
 
 `MASTER_PRD.md` already reserves `virtualTourUrl: string | null` on the listing
 schema, so adding this later requires no migration. It also places Virtual Tour
