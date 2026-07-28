@@ -52,6 +52,7 @@ These rules come from `DIRECTRENT_MOBILE_HANDOFF.md`. They are restated here bec
 - **Naira symbol:** Always literal `₦` — NEVER `\u20A6`, `&#x20A6;`, or any escape sequence.
 - **Fee labeling:** Always "Traditional Fees (Agent + Legal + Misc)" — NEVER "Agent Fee (32%)". The 32% is a composite of multiple charges.
 - **Savings figure:** Always ₦300,000 at ₦1M rent. Always.
+- **Savings framing:** Say "Save **from** ₦300,000" — never "up to". The 32% is the research-backed floor; real fees observed as high as 65% of annual rent. Phrasing the saving as a maximum understates the problem. Itemised breakdowns still show exact figures derived from 32%; only headline claims carry "from".
 - **Forbidden words in any user-visible content:** "MBA", "capstone", "Rome Business School", "academic project", "school project". Directrent presents as a company, period.
 - **Allowed framing for the research:** "primary research", "research-validated", "70 Lagos residents surveyed".
 - **Colors:** Dark burgundy backgrounds (`#1A0A0A`), gold accents (`#D4A853`), coral CTAs (`#E85A4F`). Full token list in `src/theme/tokens.ts`.

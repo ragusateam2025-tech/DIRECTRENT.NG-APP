@@ -445,7 +445,7 @@ The mobile apps must comply with:
 
 ## 13. CONTENT & COPY RULES
 
-- **Savings claim:** "Save up to ₦300,000 in rental fees" (not "agency fees" — because the 32% is a composite)
+- **Savings claim:** "Save **from** ₦300,000 in rental fees" (not "agency fees" — because the 32% is a composite). Superseded "Save up to ₦300,000" on 27 July 2026: 32% is the research-backed **floor**, not the ceiling. Observed real-world fees reach 65% of annual rent (₦650,000 on a ₦1,000,000 two-bedroom, Lagos Mainland), so "up to" understated the saving. Never phrase the saving as a maximum.
 - **Fee comparison:** "2% vs 30%+" or "2% vs ~32%" — never "2% vs 15%"
 - **Never say:** "MBA", "capstone", "Rome Business School", "academic project"
 - **Always say:** "research", "primary research", "70 Lagos residents surveyed"

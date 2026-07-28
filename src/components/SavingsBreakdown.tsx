@@ -33,7 +33,7 @@ export default function SavingsBreakdown({ annualRent }: SavingsBreakdownProps) 
 
       <Text style={styles.footnote}>
         Traditional fees combine agency, legal, caution and inspection charges —
-        typically 32% of annual rent. We charge 2%.
+        at least 32% of annual rent, and often considerably more. We charge 2%.
       </Text>
     </View>
   );

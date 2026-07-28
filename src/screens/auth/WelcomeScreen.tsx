@@ -22,7 +22,7 @@ export default function WelcomeScreen({ navigation }: Props) {
 
         <View style={styles.savingsPill}>
           <Text style={styles.savingsPillText}>
-            Save up to {formatNaira(300000)} in rental fees
+            Save from {formatNaira(300000)} in rental fees
           </Text>
         </View>
 

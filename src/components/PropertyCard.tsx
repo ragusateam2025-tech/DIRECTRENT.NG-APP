@@ -45,7 +45,7 @@ export default function PropertyCard({ listing, onPress }: PropertyCardProps) {
         </View>
 
         <View style={styles.savingsChip}>
-          <Text style={styles.savingsChipText}>Save {formatNaira(savings)}</Text>
+          <Text style={styles.savingsChipText}>Save from {formatNaira(savings)}</Text>
         </View>
       </View>
     </Pressable>
