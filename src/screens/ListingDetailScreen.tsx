@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, typography, spacing, radius } from '../theme/tokens';
+import { duration, easing, stagger } from '../theme/motion';
 import Button from '../components/Button';
 import SavingsBreakdown from '../components/SavingsBreakdown';
 import { formatNaira } from '../lib/format';
@@ -52,6 +56,12 @@ export default function ListingDetailScreen({ route }: Props) {
     try {
       const next = await toggleSaved(profile.uid, listingId);
       setSaved(next);
+      // Saving is a commitment, so it earns a firmer tap than navigation does.
+      Haptics.notificationAsync(
+        next
+          ? Haptics.NotificationFeedbackType.Success
+          : Haptics.NotificationFeedbackType.Warning,
+      ).catch(() => {});
     } catch {
       // Non-fatal during a demo — leave the current state alone.
     }
@@ -77,27 +87,41 @@ export default function ListingDetailScreen({ route }: Props) {
 
   return (
     <ScrollView style={styles.wrapper} contentContainerStyle={styles.content}>
-      {image ? (
-        <Image source={image} style={styles.image} resizeMode="cover" />
-      ) : (
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderArea}>{listing.location.area}</Text>
+      <Animated.View entering={FadeIn.duration(duration.quick)} style={styles.heroWrap}>
+        {image ? (
+          <Image source={image} style={styles.image} resizeMode="cover" />
+        ) : (
+          <View style={styles.placeholder}>
+            <Text style={styles.placeholderArea}>{listing.location.area}</Text>
+          </View>
+        )}
+        <LinearGradient
+          colors={['transparent', 'rgba(26,10,10,0.9)']}
+          style={styles.heroScrim}
+          pointerEvents="none"
+        />
+      </Animated.View>
+
+      <Animated.View
+        entering={FadeInDown.delay(stagger(0, 90)).duration(duration.normal).easing(easing.out)}
+      >
+        <Text style={styles.title}>{listing.basicInfo.title}</Text>
+        <Text style={styles.address}>{listing.location.address}</Text>
+
+        <View style={styles.priceRow}>
+          <Text style={styles.rent}>{formatNaira(listing.pricing.annualRent)}</Text>
+          <Text style={styles.perYear}>/year</Text>
         </View>
-      )}
+      </Animated.View>
 
-      <Text style={styles.title}>{listing.basicInfo.title}</Text>
-      <Text style={styles.address}>{listing.location.address}</Text>
-
-      <View style={styles.priceRow}>
-        <Text style={styles.rent}>{formatNaira(listing.pricing.annualRent)}</Text>
-        <Text style={styles.perYear}>/year</Text>
-      </View>
-
-      <View style={styles.facts}>
+      <Animated.View
+        entering={FadeInDown.delay(stagger(1, 90)).duration(duration.normal).easing(easing.out)}
+        style={styles.facts}
+      >
         <Fact value={String(listing.basicInfo.bedrooms)} label="Bedrooms" />
         <Fact value={String(listing.basicInfo.bathrooms)} label="Bathrooms" />
         <Fact value={String(listing.details.maxOccupants)} label="Max occupants" />
-      </View>
+      </Animated.View>
 
       <SavingsBreakdown annualRent={listing.pricing.annualRent} />
 
@@ -147,11 +171,17 @@ const styles = StyleSheet.create({
     fontFamily: typography.families.body,
     fontSize: typography.sizes.base,
   },
-  image: { width: '100%', height: 240, borderRadius: radius.lg },
-  placeholder: {
+  heroWrap: {
     width: '100%',
     height: 240,
     borderRadius: radius.lg,
+    overflow: 'hidden',
+  },
+  heroScrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 90 },
+  image: { width: '100%', height: '100%' },
+  placeholder: {
+    width: '100%',
+    height: '100%',
     backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',

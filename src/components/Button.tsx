@@ -1,6 +1,13 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing, radius } from '../theme/tokens';
+import { spring } from '../theme/motion';
 
 interface ButtonProps {
   label: string;
@@ -8,7 +15,14 @@ interface ButtonProps {
   variant?: 'primary' | 'secondary';
   loading?: boolean;
   disabled?: boolean;
+  /**
+   * Strength of the haptic on press. 'medium' for actions that commit
+   * something — publishing, paying, signing up.
+   */
+  feedback?: 'light' | 'medium';
 }
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function Button({
   label,
@@ -16,20 +30,42 @@ export default function Button({
   variant = 'primary',
   loading = false,
   disabled = false,
+  feedback = 'light',
 }: ButtonProps) {
   const isDisabled = disabled || loading;
+  const scale = useSharedValue(1);
+
+  const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  function handlePress() {
+    const style =
+      feedback === 'medium'
+        ? Haptics.ImpactFeedbackStyle.Medium
+        : Haptics.ImpactFeedbackStyle.Light;
+    // Haptics are a courtesy, never a dependency — a device without a motor
+    // (or with it disabled) must not break the button.
+    Haptics.impactAsync(style).catch(() => {});
+    onPress();
+  }
 
   return (
-    <Pressable
-      onPress={onPress}
+    <AnimatedPressable
+      onPress={handlePress}
+      onPressIn={() => {
+        if (!isDisabled) scale.value = withSpring(0.97, spring.press);
+      }}
+      onPressOut={() => {
+        scale.value = withSpring(1, spring.press);
+      }}
       disabled={isDisabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => [
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
+      style={[
         styles.base,
         variant === 'primary' ? styles.primary : styles.secondary,
-        pressed && !isDisabled && styles.pressed,
         isDisabled && styles.disabled,
+        pressStyle,
       ]}
     >
       {loading ? (
@@ -39,7 +75,7 @@ export default function Button({
           {label}
         </Text>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -57,7 +93,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderGold,
   },
-  pressed: { opacity: 0.85 },
   disabled: { opacity: 0.5 },
   label: {
     color: colors.textPrimary,

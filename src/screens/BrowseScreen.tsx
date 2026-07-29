@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, typography, spacing } from '../theme/tokens';
 import PropertyCard from '../components/PropertyCard';
 import EmptyState from '../components/EmptyState';
+import { PropertyCardSkeleton } from '../components/Skeleton';
 import { fetchListings } from '../services/listings';
 import type { Listing } from '../types';
 import type { BrowseStackParams } from '../navigation/AppTabs';
@@ -36,11 +37,20 @@ export default function BrowseScreen({ navigation }: Props) {
     setRefreshing(false);
   }
 
+  // Skeletons rather than a spinner: they hold the layout, so nothing jumps
+  // when the real cards arrive, and they read as "content is coming".
   if (loading) {
     return (
-      <View style={styles.centre}>
-        <ActivityIndicator size="large" color={colors.accentGold} />
-      </View>
+      <SafeAreaView style={styles.wrapper} edges={['left', 'right']}>
+        <View style={styles.list}>
+          <View style={styles.header}>
+            <Text style={styles.heading}>Rent directly in Lagos</Text>
+            <Text style={styles.sub}>Finding verified properties…</Text>
+          </View>
+          <PropertyCardSkeleton />
+          <PropertyCardSkeleton />
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -73,9 +83,10 @@ export default function BrowseScreen({ navigation }: Props) {
             body="Listings will appear here once they are published. Pull down to refresh."
           />
         }
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <PropertyCard
             listing={item}
+            index={index}
             onPress={() => navigation.navigate('ListingDetail', { listingId: item.id })}
           />
         )}

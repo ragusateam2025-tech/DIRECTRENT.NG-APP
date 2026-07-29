@@ -70,9 +70,10 @@ export default function SavedScreen() {
             body="Tap the save button on any property and it will appear here."
           />
         }
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <PropertyCard
             listing={item}
+            index={index}
             onPress={() =>
               navigation.navigate('Browse', {
                 screen: 'ListingDetail',
