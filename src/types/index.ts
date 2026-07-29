@@ -4,6 +4,40 @@
 
 export type UserRole = 'tenant' | 'landlord' | 'both';
 
+/** How soon a tenant wants to move. Preset bands rather than a date picker. */
+export type MoveInTiming = 'asap' | 'within_month' | 'one_to_three_months' | 'flexible';
+
+export type LeaseDuration = 6 | 12 | 24;
+
+export type ApplicationStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn';
+
+/**
+ * A tenant's expression of interest in a property.
+ *
+ * Denormalises the listing title and the tenant's name deliberately: both
+ * screens that show an application need them, and a second read per row would
+ * make a list of applications N+1 queries on a mobile connection.
+ */
+export interface Application {
+  id: string;
+  listingId: string;
+  /** The landlord who owns the listing, so they can query applications addressed to them. */
+  landlordId: string;
+  tenantId: string;
+  tenantName: string;
+  tenantEmail: string;
+  /** Copied at submission so the row reads correctly even if the listing changes. */
+  listingTitle: string;
+  listingArea: string;
+  annualRent: number;
+  moveIn: MoveInTiming;
+  leaseMonths: LeaseDuration;
+  occupants: number;
+  message: string;
+  status: ApplicationStatus;
+  createdAt: number;
+}
+
 export type PropertyType =
   | 'self_contained'
   | 'mini_flat'

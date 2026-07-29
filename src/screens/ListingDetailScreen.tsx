@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -10,6 +11,7 @@ import SavingsBreakdown from '../components/SavingsBreakdown';
 import { formatNaira } from '../lib/format';
 import { fetchListing } from '../services/listings';
 import { isSaved, toggleSaved } from '../services/saved';
+import { hasApplied } from '../services/applications';
 import { useAuth } from '../context/AuthContext';
 import { primaryImageSource } from '../lib/listingImage';
 import type { Listing } from '../types';
@@ -26,35 +28,48 @@ interface Props {
 export default function ListingDetailScreen({ route }: Props) {
   const { listingId } = route.params;
   const { profile } = useAuth();
+  const navigation = useNavigation<any>();
   const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [applied, setApplied] = useState(false);
 
-  useEffect(() => {
-    let active = true;
+  // Refetches on focus so returning from the enquiry form shows the sent state
+  // without a manual reload.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
 
-    async function load() {
-      const result = await fetchListing(listingId);
-      if (!active) return;
-      setListing(result);
+      async function load() {
+        const result = await fetchListing(listingId);
+        if (!active) return;
+        setListing(result);
 
-      if (profile) {
-        try {
-          const savedState = await isSaved(profile.uid, listingId);
-          if (active) setSaved(savedState);
-        } catch {
-          // Non-fatal: the save state just shows as unsaved.
+        if (profile) {
+          // Both are best-effort: a listing must still render if either fails.
+          try {
+            const savedState = await isSaved(profile.uid, listingId);
+            if (active) setSaved(savedState);
+          } catch {
+            // Save state just shows as unsaved.
+          }
+          try {
+            const appliedState = await hasApplied(listingId, profile.uid);
+            if (active) setApplied(appliedState);
+          } catch {
+            // Enquiry state falls back to allowing another attempt.
+          }
         }
+
+        if (active) setLoading(false);
       }
 
-      if (active) setLoading(false);
-    }
-
-    load();
-    return () => {
-      active = false;
-    };
-  }, [listingId, profile]);
+      load();
+      return () => {
+        active = false;
+      };
+    }, [listingId, profile]),
+  );
 
   async function handleToggleSave() {
     if (!profile) return;
@@ -143,6 +158,13 @@ export default function ListingDetailScreen({ route }: Props) {
       </View>
 
       <View style={styles.actions}>
+        <Button
+          label={applied ? 'Enquiry sent' : 'Enquire about this property'}
+          onPress={() => navigation.navigate('Apply', { listingId })}
+          disabled={applied}
+          feedback="medium"
+        />
+        <View style={styles.actionSpacer} />
         <Button
           label={saved ? '♥ Saved' : '♡ Save this property'}
           variant="secondary"
@@ -268,4 +290,5 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.xs,
   },
   actions: { marginTop: spacing.lg },
+  actionSpacer: { height: spacing.sm },
 });

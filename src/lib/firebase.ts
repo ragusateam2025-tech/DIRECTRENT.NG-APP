@@ -16,4 +16,5 @@ export const COLLECTIONS = {
   users: 'users',
   listings: 'listings',
   saved: 'saved',
+  applications: 'applications',
 } as const;

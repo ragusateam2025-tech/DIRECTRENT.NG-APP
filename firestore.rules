@@ -43,5 +43,36 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
+
+    // An application is private to the two people it concerns: the tenant who
+    // sent it and the landlord who owns the property. Nobody else can read it,
+    // which matters because it carries the tenant's name and email.
+    match /applications/{applicationId} {
+      allow read: if request.auth != null
+                  && (resource.data.tenantId == request.auth.uid
+                      || resource.data.landlordId == request.auth.uid);
+
+      // A tenant may only create an application in their own name. Without this
+      // check anyone could submit applications attributed to someone else.
+      allow create: if request.auth != null
+                    && request.resource.data.tenantId == request.auth.uid;
+
+      // The tenant may edit their own application (to withdraw or resubmit).
+      // The landlord may change only the status — accepting or declining — and
+      // cannot alter what the tenant wrote.
+      allow update: if request.auth != null
+                    && (
+                      (resource.data.tenantId == request.auth.uid
+                       && request.resource.data.tenantId == resource.data.tenantId)
+                      ||
+                      (resource.data.landlordId == request.auth.uid
+                       && request.resource.data.diff(resource.data)
+                            .affectedKeys().hasOnly(['status']))
+                    );
+
+      // Applications are a record for both sides, so neither party deletes
+      // them. A tenant withdraws by setting status instead.
+      allow delete: if false;
+    }
   }
 }

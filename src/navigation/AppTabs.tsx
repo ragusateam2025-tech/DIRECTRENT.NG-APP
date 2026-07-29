@@ -5,9 +5,10 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { colors, typography } from '../theme/tokens';
 import BrowseScreen from '../screens/BrowseScreen';
 import SavedScreen from '../screens/SavedScreen';
-import MessagesScreen from '../screens/MessagesScreen';
+import EnquiriesScreen from '../screens/EnquiriesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ListingDetailScreen from '../screens/ListingDetailScreen';
+import ApplyScreen from '../screens/ApplyScreen';
 import MyPropertiesScreen from '../screens/landlord/MyPropertiesScreen';
 import AddPropertyScreen from '../screens/landlord/AddPropertyScreen';
 import { useAuth } from '../context/AuthContext';
@@ -15,12 +16,14 @@ import { useAuth } from '../context/AuthContext';
 export type BrowseStackParams = {
   BrowseList: undefined;
   ListingDetail: { listingId: string };
+  Apply: { listingId: string };
 };
 
 export type LandlordStackParams = {
   MyProperties: undefined;
   AddProperty: { draftId?: string };
   LandlordListingDetail: { listingId: string };
+  Apply: { listingId: string };
 };
 
 const Tab = createBottomTabNavigator();
@@ -43,6 +46,11 @@ function BrowseStack() {
         component={ListingDetailScreen}
         options={{ title: 'Property' }}
       />
+      <Stack.Screen
+        name="Apply"
+        component={ApplyScreen}
+        options={{ title: 'Enquire' }}
+      />
     </Stack.Navigator>
   );
 }
@@ -64,6 +72,13 @@ function LandlordFlow() {
         name="LandlordListingDetail"
         component={ListingDetailScreen}
         options={{ title: 'Property' }}
+      />
+      {/* Reachable because a "both" account can view a listing from either
+          stack; a landlord viewing their own property simply never taps it. */}
+      <LandlordStack.Screen
+        name="Apply"
+        component={ApplyScreen}
+        options={{ title: 'Enquire' }}
       />
     </LandlordStack.Navigator>
   );
@@ -114,9 +129,9 @@ export default function AppTabs() {
         <Tab.Screen name="Saved" component={SavedScreen} options={{ tabBarIcon: tabIcon('♥') }} />
       )}
       <Tab.Screen
-        name="Messages"
-        component={MessagesScreen}
-        options={{ tabBarIcon: tabIcon('💬') }}
+        name="Enquiries"
+        component={EnquiriesScreen}
+        options={{ tabBarIcon: tabIcon('✉️') }}
       />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarIcon: tabIcon('👤') }} />
     </Tab.Navigator>
