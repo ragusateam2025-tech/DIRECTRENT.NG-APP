@@ -33,6 +33,22 @@ export interface UserProfile {
  */
 export type ListingStatus = 'draft' | 'pending' | 'active' | 'rented';
 
+/**
+ * A listing as it exists in a landlord's own list, which includes drafts.
+ *
+ * `Listing` models a *published* listing, where every field is present. A draft
+ * is built up step by step, so until the wizard finishes most of it is missing —
+ * a draft saved after step one has `basicInfo` and nothing else.
+ *
+ * Only identity and status are guaranteed. Consumers must treat everything else
+ * as absent, which the optional fields force them to do.
+ */
+export type LandlordListing = Partial<Omit<Listing, 'id' | 'ownerId' | 'status'>> & {
+  id: string;
+  ownerId: string;
+  status: { listing: ListingStatus };
+};
+
 export interface Listing {
   id: string;
   /**

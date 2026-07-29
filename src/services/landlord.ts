@@ -18,7 +18,7 @@ import {
 } from '@react-native-firebase/storage';
 import { db, app, COLLECTIONS } from '../lib/firebase';
 import { compressPhoto } from '../lib/photos';
-import type { Listing, ListingStatus } from '../types';
+import type { Listing, LandlordListing, ListingStatus } from '../types';
 
 const storage = getStorage(app);
 
@@ -36,11 +36,17 @@ export function newListingId(): string {
   return doc(collection(db, COLLECTIONS.listings)).id;
 }
 
-/** Every listing belonging to this landlord, newest drafts included. */
-export async function fetchMyListings(ownerId: string): Promise<Listing[]> {
+/**
+ * Every listing belonging to this landlord, drafts included.
+ *
+ * Returns LandlordListing rather than Listing: a draft genuinely lacks most
+ * fields, and casting it to Listing would tell the type system a lie it cannot
+ * check — which is exactly how `media` being undefined reached the screen.
+ */
+export async function fetchMyListings(ownerId: string): Promise<LandlordListing[]> {
   const q = query(collection(db, COLLECTIONS.listings), where('ownerId', '==', ownerId));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as Listing);
+  return snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as LandlordListing);
 }
 
 /**

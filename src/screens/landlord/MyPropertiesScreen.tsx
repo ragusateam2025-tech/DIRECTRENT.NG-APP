@@ -12,7 +12,7 @@ import { formatNaira } from '../../lib/format';
 import { primaryImageSource } from '../../lib/listingImage';
 import { fetchMyListings } from '../../services/landlord';
 import { useAuth } from '../../context/AuthContext';
-import type { Listing, ListingStatus } from '../../types';
+import type { LandlordListing, ListingStatus } from '../../types';
 
 const STATUS_LABEL: Record<ListingStatus, string> = {
   draft: 'Draft',
@@ -39,7 +39,7 @@ const STATUS_ORDER: Record<ListingStatus, number> = {
 export default function MyPropertiesScreen() {
   const { profile } = useAuth();
   const navigation = useNavigation<any>();
-  const [listings, setListings] = useState<Listing[]>([]);
+  const [listings, setListings] = useState<LandlordListing[]>([]);
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(
@@ -136,7 +136,7 @@ function LandlordListingRow({
   index,
   onPress,
 }: {
-  listing: Listing;
+  listing: LandlordListing;
   index: number;
   onPress: () => void;
 }) {
@@ -150,7 +150,7 @@ function LandlordListingRow({
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={`${listing.basicInfo.title || 'Untitled draft'}, ${STATUS_LABEL[status]}`}
+        accessibilityLabel={`${listing.basicInfo?.title || 'Untitled draft'}, ${STATUS_LABEL[status]}`}
         style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       >
         <View style={styles.thumb}>
@@ -171,7 +171,7 @@ function LandlordListingRow({
           </View>
 
           <Text style={styles.rowTitle} numberOfLines={2}>
-            {listing.basicInfo.title || 'Untitled draft'}
+            {listing.basicInfo?.title || 'Untitled draft'}
           </Text>
 
           <Text style={styles.rowMeta}>
