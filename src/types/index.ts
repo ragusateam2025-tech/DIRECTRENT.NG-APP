@@ -23,8 +23,23 @@ export interface UserProfile {
   createdAt: number;
 }
 
+/**
+ * Listing lifecycle.
+ *
+ * `draft`   — the landlord is still filling in the wizard. Visible only to them.
+ * `pending` — submitted, awaiting review. Still invisible to tenants.
+ * `active`  — approved and browsable.
+ * `rented`  — no longer available.
+ */
+export type ListingStatus = 'draft' | 'pending' | 'active' | 'rented';
+
 export interface Listing {
   id: string;
+  /**
+   * uid of the landlord who owns this listing. Every Firestore and Storage
+   * rule keys off this — see firestore.rules. Immutable after creation.
+   */
+  ownerId: string;
   basicInfo: {
     title: string;
     propertyType: PropertyType;
@@ -38,8 +53,16 @@ export interface Listing {
     lga: string;
   };
   media: {
-    /** Key into the bundled image map in src/data/seedListings.ts. */
-    photoKey: string;
+    /**
+     * Key into the bundled image map in src/data/seedListings.ts.
+     * Demo listings only — real listings use `photos`.
+     */
+    photoKey?: string;
+    /**
+     * Firebase Storage download URLs, first is primary. Populated by the
+     * landlord upload flow; absent on the seeded demo listings.
+     */
+    photos?: string[];
   };
   pricing: {
     annualRent: number;
@@ -52,6 +75,6 @@ export interface Listing {
     maxOccupants: number;
   };
   status: {
-    listing: 'active' | 'rented' | 'draft';
+    listing: ListingStatus;
   };
 }

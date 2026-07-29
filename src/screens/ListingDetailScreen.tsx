@@ -12,7 +12,7 @@ import { formatNaira } from '../lib/format';
 import { fetchListing } from '../services/listings';
 import { isSaved, toggleSaved } from '../services/saved';
 import { useAuth } from '../context/AuthContext';
-import { PROPERTY_IMAGES } from '../data/seedListings';
+import { primaryImageSource } from '../lib/listingImage';
 import type { Listing } from '../types';
 import type { BrowseStackParams } from '../navigation/AppTabs';
 
@@ -83,7 +83,7 @@ export default function ListingDetailScreen({ route }: Props) {
     );
   }
 
-  const image = PROPERTY_IMAGES[listing.media.photoKey];
+  const image = primaryImageSource(listing);
 
   return (
     <ScrollView style={styles.wrapper} contentContainerStyle={styles.content}>

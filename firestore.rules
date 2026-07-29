@@ -1,0 +1,47 @@
+rules_version = '2';
+
+// Directrent.ng — Firestore security rules
+//
+// Publish these in the Firebase console for project `directrent-prod`:
+//   Build → Firestore Database → Rules → paste → Publish
+//
+// Authority follows ownership. A listing belongs to the landlord whose uid is
+// in ownerId, and only that landlord may change it. Tenants see active
+// listings and nothing else — drafts and pending listings are invisible to
+// them at every stage.
+//
+// These supersede the demo rules, which allowed any signed-in user to write
+// any listing. That was acceptable for seeded content and is not acceptable
+// once real property owners upload.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /listings/{listingId} {
+      // A tenant may read a listing only once it is active. A landlord may
+      // always read their own, whatever its status.
+      allow read: if request.auth != null
+                  && (resource.data.status.listing == 'active'
+                      || resource.data.ownerId == request.auth.uid);
+
+      // A landlord may only create a listing owned by themselves. Without
+      // this, anyone could create a listing attributed to someone else.
+      allow create: if request.auth != null
+                    && request.resource.data.ownerId == request.auth.uid;
+
+      // Only the owner may change or remove a listing, and ownership itself
+      // is immutable — a listing cannot be reassigned to another account.
+      allow update, delete: if request.auth != null
+                            && resource.data.ownerId == request.auth.uid
+                            && request.resource.data.ownerId == resource.data.ownerId;
+    }
+
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /saved/{listingId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}

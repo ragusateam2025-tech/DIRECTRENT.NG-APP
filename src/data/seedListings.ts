@@ -26,6 +26,8 @@ export const PROPERTY_IMAGES: Record<string, number | undefined> = {
 export const SEED_LISTINGS: Listing[] = [
   {
     id: 'yaba-selfcon-01',
+    // Seeded demo data has no real landlord. Retired once pilot landlords publish.
+    ownerId: 'demo',
     basicInfo: {
       title: 'Bright self-contained near Yaba College',
       propertyType: 'self_contained',
@@ -46,6 +48,8 @@ export const SEED_LISTINGS: Listing[] = [
   },
   {
     id: 'yaba-minif-02',
+    // Seeded demo data has no real landlord. Retired once pilot landlords publish.
+    ownerId: 'demo',
     basicInfo: {
       title: 'Mini flat with balcony, Sabo Yaba',
       propertyType: 'mini_flat',
@@ -66,6 +70,8 @@ export const SEED_LISTINGS: Listing[] = [
   },
   {
     id: 'surulere-1bed-03',
+    // Seeded demo data has no real landlord. Retired once pilot landlords publish.
+    ownerId: 'demo',
     basicInfo: {
       title: 'One bedroom apartment off Adeniran Ogunsanya',
       propertyType: 'one_bedroom',
@@ -86,6 +92,8 @@ export const SEED_LISTINGS: Listing[] = [
   },
   {
     id: 'surulere-2bed-04',
+    // Seeded demo data has no real landlord. Retired once pilot landlords publish.
+    ownerId: 'demo',
     basicInfo: {
       title: 'Two bedroom flat, quiet Surulere street',
       propertyType: 'two_bedroom',
@@ -106,6 +114,8 @@ export const SEED_LISTINGS: Listing[] = [
   },
   {
     id: 'yaba-2bed-05',
+    // Seeded demo data has no real landlord. Retired once pilot landlords publish.
+    ownerId: 'demo',
     basicInfo: {
       title: 'Two bedroom, newly built, Herbert Macaulay',
       propertyType: 'two_bedroom',
@@ -126,6 +136,8 @@ export const SEED_LISTINGS: Listing[] = [
   },
   {
     id: 'surulere-3bed-06',
+    // Seeded demo data has no real landlord. Retired once pilot landlords publish.
+    ownerId: 'demo',
     basicInfo: {
       title: 'Three bedroom family flat, Bode Thomas',
       propertyType: 'three_bedroom',

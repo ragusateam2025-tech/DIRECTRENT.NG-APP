@@ -13,7 +13,7 @@ import { colors, typography, spacing, radius } from '../theme/tokens';
 import { duration, easing, spring, stagger, travel } from '../theme/motion';
 import { formatNaira } from '../lib/format';
 import { calculateSavings } from '../lib/savings';
-import { PROPERTY_IMAGES } from '../data/seedListings';
+import { primaryImageSource } from '../lib/listingImage';
 import type { Listing } from '../types';
 
 interface PropertyCardProps {
@@ -26,7 +26,7 @@ interface PropertyCardProps {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function PropertyCard({ listing, onPress, index = 0 }: PropertyCardProps) {
-  const image = PROPERTY_IMAGES[listing.media.photoKey];
+  const image = primaryImageSource(listing);
   const { savings } = calculateSavings(listing.pricing.annualRent);
   const [imageLoaded, setImageLoaded] = useState(false);
 
