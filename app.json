@@ -33,6 +33,13 @@
       "expo-font",
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Directrent needs access to your photos so you can add pictures of your property to a listing.",
+          "cameraPermission": "Directrent needs camera access so you can photograph your property for a listing."
+        }
+      ],
       ["expo-build-properties", { "android": { "minSdkVersion": 24 } }]
     ]
   }
