@@ -65,7 +65,7 @@ export default function SavedScreen() {
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <EmptyState
-            icon="♥"
+            variant="empty"
             title="Nothing saved yet"
             body="Tap the save button on any property and it will appear here."
           />

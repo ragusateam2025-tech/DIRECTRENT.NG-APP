@@ -14,6 +14,7 @@ import { isSaved, toggleSaved } from '../services/saved';
 import { hasApplied } from '../services/applications';
 import { useAuth } from '../context/AuthContext';
 import { primaryImageSource } from '../lib/listingImage';
+import { IconSaved } from '../components/icons/Icon';
 import type { Listing } from '../types';
 
 /**
@@ -166,8 +167,9 @@ export default function ListingDetailScreen({ route }: Props) {
         />
         <View style={styles.actionSpacer} />
         <Button
-          label={saved ? '♥ Saved' : '♡ Save this property'}
+          label={saved ? 'Saved' : 'Save this property'}
           variant="secondary"
+          icon={<IconSaved size={18} color={colors.accentGold} filled={saved} />}
           onPress={handleToggleSave}
         />
       </View>

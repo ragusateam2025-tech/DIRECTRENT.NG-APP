@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { colors, typography } from '../theme/tokens';
@@ -12,6 +12,13 @@ import ApplyScreen from '../screens/ApplyScreen';
 import MyPropertiesScreen from '../screens/landlord/MyPropertiesScreen';
 import AddPropertyScreen from '../screens/landlord/AddPropertyScreen';
 import { useAuth } from '../context/AuthContext';
+import {
+  IconBrowse,
+  IconListings,
+  IconSaved,
+  IconEnquiries,
+  IconProfile,
+} from '../components/icons/Icon';
 
 export type BrowseStackParams = {
   BrowseList: undefined;
@@ -84,12 +91,38 @@ function LandlordFlow() {
   );
 }
 
-/** Emoji tab icons keep the app dependency-free — no icon font to configure. */
-function tabIcon(emoji: string) {
+/**
+ * Tab icons carry two signals at once: the drawn glyph fills when active, and a
+ * short gold rule appears above it. The fill alone is a weak signal at 22px on
+ * a dark background; the rule makes the current tab unmistakable at a glance
+ * without adding colour noise to the four that are not selected.
+ */
+function tabIcon(
+  Glyph: React.ComponentType<{ size?: number; color?: string; filled?: boolean }>,
+) {
   return ({ focused }: { focused: boolean }) => (
-    <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>
+    <View style={styles.tabIcon}>
+      <View style={[styles.tabRule, focused && styles.tabRuleActive]} />
+      <Glyph
+        size={22}
+        color={focused ? colors.accentGold : colors.textMuted}
+        filled={focused}
+      />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  tabIcon: { alignItems: 'center', justifyContent: 'center' },
+  tabRule: {
+    width: 16,
+    height: 2,
+    borderRadius: 1,
+    marginBottom: 6,
+    backgroundColor: 'transparent',
+  },
+  tabRuleActive: { backgroundColor: colors.accentGold },
+});
 
 export default function AppTabs() {
   const { profile } = useAuth();
@@ -116,24 +149,24 @@ export default function AppTabs() {
       }}
     >
       {isTenant && (
-        <Tab.Screen name="Browse" component={BrowseStack} options={{ tabBarIcon: tabIcon('🏠') }} />
+        <Tab.Screen name="Browse" component={BrowseStack} options={{ tabBarIcon: tabIcon(IconBrowse) }} />
       )}
       {isLandlord && (
         <Tab.Screen
           name="Listings"
           component={LandlordFlow}
-          options={{ tabBarIcon: tabIcon('🏘️') }}
+          options={{ tabBarIcon: tabIcon(IconListings) }}
         />
       )}
       {isTenant && (
-        <Tab.Screen name="Saved" component={SavedScreen} options={{ tabBarIcon: tabIcon('♥') }} />
+        <Tab.Screen name="Saved" component={SavedScreen} options={{ tabBarIcon: tabIcon(IconSaved) }} />
       )}
       <Tab.Screen
         name="Enquiries"
         component={EnquiriesScreen}
-        options={{ tabBarIcon: tabIcon('✉️') }}
+        options={{ tabBarIcon: tabIcon(IconEnquiries) }}
       />
-      <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarIcon: tabIcon('👤') }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarIcon: tabIcon(IconProfile) }} />
     </Tab.Navigator>
   );
 }

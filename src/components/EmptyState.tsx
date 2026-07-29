@@ -1,20 +1,24 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { colors, typography, spacing } from '../theme/tokens';
+import { duration } from '../theme/motion';
+import BrandIllustration, { type IllustrationVariant } from './BrandIllustration';
 
 interface EmptyStateProps {
-  icon: string;
   title: string;
   body: string;
+  /** Which state the direct-line mark should express. */
+  variant?: IllustrationVariant;
 }
 
-export default function EmptyState({ icon, title, body }: EmptyStateProps) {
+export default function EmptyState({ title, body, variant = 'empty' }: EmptyStateProps) {
   return (
-    <View style={styles.wrapper}>
-      <Text style={styles.icon}>{icon}</Text>
+    <Animated.View entering={FadeIn.duration(duration.normal)} style={styles.wrapper}>
+      <BrandIllustration variant={variant} size={130} />
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.body}>{body}</Text>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -25,11 +29,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
   },
-  icon: { fontSize: 48, marginBottom: spacing.md },
   title: {
     color: colors.textPrimary,
     fontFamily: typography.families.heading,
     fontSize: typography.sizes.xl,
+    marginTop: spacing.lg,
     marginBottom: spacing.sm,
     textAlign: 'center',
   },

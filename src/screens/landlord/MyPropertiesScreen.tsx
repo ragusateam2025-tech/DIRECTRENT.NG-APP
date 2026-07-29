@@ -105,7 +105,7 @@ export default function MyPropertiesScreen() {
         }
         ListEmptyComponent={
           <EmptyState
-            icon="🏘️"
+            variant="empty"
             title="List your first property"
             body="Add photos, set your rent, and reach tenants directly — no agent in the middle."
           />

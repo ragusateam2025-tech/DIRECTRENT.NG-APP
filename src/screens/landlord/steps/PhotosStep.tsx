@@ -6,6 +6,7 @@ import { colors, typography, spacing, radius } from '../../../theme/tokens';
 import { duration } from '../../../theme/motion';
 import Button from '../../../components/Button';
 import { uploadPhoto, deletePhoto, MIN_PHOTOS } from '../../../services/landlord';
+import { IconPlus } from '../../../components/icons/Icon';
 import type { DraftListing } from '../AddPropertyScreen';
 
 interface PhotosStepProps {
@@ -29,21 +30,44 @@ export default function PhotosStep({
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
 
-  async function pickAndUpload() {
+  /** Offers the two ways a landlord actually has photos: already taken, or about to take. */
+  function addPhotos() {
+    Alert.alert('Add photos', undefined, [
+      { text: 'Take a photo', onPress: () => pickAndUpload('camera') },
+      { text: 'Choose from gallery', onPress: () => pickAndUpload('gallery') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
+
+  async function pickAndUpload(source: 'camera' | 'gallery') {
     setError('');
 
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permission =
+      source === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
     if (!permission.granted) {
-      setError('Directrent needs access to your photos to add pictures of the property.');
+      setError(
+        source === 'camera'
+          ? 'Directrent needs camera access to photograph the property.'
+          : 'Directrent needs access to your photos to add pictures of the property.',
+      );
       return;
     }
 
-    const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      selectionLimit: 10,
-      quality: 1, // Compression happens in compressPhoto, after resizing.
-    });
+    const picked =
+      source === 'camera'
+        ? await ImagePicker.launchCameraAsync({
+            // Compression happens in compressPhoto, after resizing.
+            quality: 1,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsMultipleSelection: true,
+            selectionLimit: 10,
+            quality: 1,
+          });
 
     if (picked.canceled || picked.assets.length === 0) return;
 
@@ -69,7 +93,7 @@ export default function PhotosStep({
         await onChange({ media: { ...draft.media, photos: current } });
       } catch (err: any) {
         setError(
-          `A photo failed to upload (${err?.message ?? 'unknown error'}). The others were saved — tap Add photos to retry.`,
+          `A photo failed to upload (${err?.message ?? 'unknown error'}). The others were saved — tap Add to retry.`,
         );
         break;
       }
@@ -136,13 +160,13 @@ export default function PhotosStep({
 
         {photos.length < 10 && (
           <Pressable
-            onPress={pickAndUpload}
+            onPress={addPhotos}
             disabled={uploading}
             accessibilityRole="button"
             accessibilityLabel="Add photos"
             style={[styles.tile, styles.addTile]}
           >
-            <Text style={styles.addTilePlus}>+</Text>
+            <IconPlus size={22} color={colors.accentGold} />
             <Text style={styles.addTileText}>Add</Text>
           </Pressable>
         )}
@@ -224,11 +248,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderGold,
     borderStyle: 'dashed',
-  },
-  addTilePlus: {
-    color: colors.accentGold,
-    fontFamily: typography.families.display,
-    fontSize: typography.sizes['2xl'],
   },
   addTileText: {
     color: colors.accentGold,

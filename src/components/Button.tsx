@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -20,6 +20,8 @@ interface ButtonProps {
    * something — publishing, paying, signing up.
    */
   feedback?: 'light' | 'medium';
+  /** Drawn glyph shown before the label. Keeps symbols out of label strings. */
+  icon?: React.ReactNode;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -31,6 +33,7 @@ export default function Button({
   loading = false,
   disabled = false,
   feedback = 'light',
+  icon,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
   const scale = useSharedValue(1);
@@ -71,9 +74,18 @@ export default function Button({
       {loading ? (
         <ActivityIndicator color={colors.textPrimary} />
       ) : (
-        <Text style={[styles.label, variant === 'secondary' && styles.labelSecondary]}>
-          {label}
-        </Text>
+        <View style={styles.content}>
+          {icon}
+          <Text
+            style={[
+              styles.label,
+              variant === 'secondary' && styles.labelSecondary,
+              !!icon && styles.labelWithIcon,
+            ]}
+          >
+            {label}
+          </Text>
+        </View>
       )}
     </AnimatedPressable>
   );
@@ -100,4 +112,6 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.base,
   },
   labelSecondary: { color: colors.accentGold },
+  content: { flexDirection: 'row', alignItems: 'center' },
+  labelWithIcon: { marginLeft: spacing.sm },
 });

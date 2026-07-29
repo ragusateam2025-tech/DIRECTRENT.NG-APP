@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, typography, spacing, radius } from '../theme/tokens';
+import { IconSearch, IconClose, IconFilters } from './icons/Icon';
 
 interface SearchBarProps {
   value: string;
@@ -19,7 +20,9 @@ export default function SearchBar({
   return (
     <View style={styles.row}>
       <View style={styles.field}>
-        <Text style={styles.icon}>🔍</Text>
+        <View style={styles.icon}>
+          <IconSearch size={17} color={colors.textMuted} />
+        </View>
         <TextInput
           value={value}
           onChangeText={onChangeText}
@@ -38,7 +41,9 @@ export default function SearchBar({
             accessibilityLabel="Clear search"
             hitSlop={8}
           >
-            <Text style={styles.clear}>✕</Text>
+            <View style={styles.clear}>
+              <IconClose size={15} color={colors.textMuted} />
+            </View>
           </Pressable>
         )}
       </View>
@@ -55,9 +60,12 @@ export default function SearchBar({
           pressed && styles.pressed,
         ]}
       >
-        <Text style={[styles.filterText, activeFilters > 0 && styles.filterTextActive]}>
-          Filters{activeFilters > 0 ? ` (${activeFilters})` : ''}
-        </Text>
+        <View style={styles.filterInner}>
+          <IconFilters size={16} color={activeFilters > 0 ? colors.accentGold : colors.textSecondary} />
+          <Text style={[styles.filterText, activeFilters > 0 && styles.filterTextActive]}>
+            {activeFilters > 0 ? String(activeFilters) : 'Filter'}
+          </Text>
+        </View>
       </Pressable>
     </View>
   );
@@ -76,7 +84,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: spacing.sm,
   },
-  icon: { fontSize: 15, marginRight: spacing.xs },
+  icon: { marginRight: spacing.xs },
   input: {
     flex: 1,
     color: colors.textPrimary,
@@ -84,11 +92,7 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     paddingVertical: 0,
   },
-  clear: {
-    color: colors.textMuted,
-    fontSize: typography.sizes.base,
-    paddingHorizontal: spacing.xs,
-  },
+  clear: { paddingHorizontal: spacing.xs },
   filterButton: {
     height: 46,
     justifyContent: 'center',
@@ -104,10 +108,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundElevated,
   },
   pressed: { opacity: 0.85 },
+  filterInner: { flexDirection: 'row', alignItems: 'center' },
   filterText: {
     color: colors.textSecondary,
     fontFamily: typography.families.bodyMedium,
     fontSize: typography.sizes.sm,
+    marginLeft: spacing.xs,
   },
   filterTextActive: { color: colors.accentGold },
 });

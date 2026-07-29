@@ -111,13 +111,13 @@ export default function BrowseScreen({ navigation }: Props) {
         ListEmptyComponent={
           filtering ? (
             <EmptyState
-              icon="🔍"
+              variant="noMatch"
               title="Nothing matches those filters"
               body="Try widening your search — a different area, fewer bedrooms, or a higher price range."
             />
           ) : (
             <EmptyState
-              icon="🏠"
+              variant="empty"
               title="No properties yet"
               body="Listings will appear here once they are published. Pull down to refresh."
             />

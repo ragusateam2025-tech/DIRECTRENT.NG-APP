@@ -108,13 +108,13 @@ export default function EnquiriesScreen() {
         ListEmptyComponent={
           loading ? null : tab === 'sent' ? (
             <EmptyState
-              icon="✉️"
+              variant="empty"
               title="No enquiries yet"
               body="When you enquire about a property, it appears here with the landlord's reply."
             />
           ) : (
             <EmptyState
-              icon="📥"
+              variant="empty"
               title="No enquiries received"
               body="When a tenant enquires about one of your properties, it appears here."
             />
