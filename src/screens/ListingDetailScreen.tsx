@@ -3,7 +3,6 @@ import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 're
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, typography, spacing, radius } from '../theme/tokens';
 import { duration, easing, stagger } from '../theme/motion';
 import Button from '../components/Button';
@@ -14,9 +13,15 @@ import { isSaved, toggleSaved } from '../services/saved';
 import { useAuth } from '../context/AuthContext';
 import { primaryImageSource } from '../lib/listingImage';
 import type { Listing } from '../types';
-import type { BrowseStackParams } from '../navigation/AppTabs';
 
-type Props = NativeStackScreenProps<BrowseStackParams, 'ListingDetail'>;
+/**
+ * Typed structurally rather than against one stack, because this screen is
+ * reached from both the tenant Browse stack and the landlord Listings stack.
+ * All it needs is the listing id.
+ */
+interface Props {
+  route: { params: { listingId: string } };
+}
 
 export default function ListingDetailScreen({ route }: Props) {
   const { listingId } = route.params;

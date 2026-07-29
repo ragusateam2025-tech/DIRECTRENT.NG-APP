@@ -1,0 +1,130 @@
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { colors, typography, spacing } from '../../../theme/tokens';
+import TextField from '../../../components/TextField';
+import Button from '../../../components/Button';
+import SavingsBreakdown from '../../../components/SavingsBreakdown';
+import { Chip } from './BasicInfoStep';
+import type { DraftListing } from '../AddPropertyScreen';
+
+const CAUTION_MONTHS = [6, 12, 18, 24];
+
+/** Rent bounds from MASTER_PRD_PART2.md createListing validation. */
+const MIN_RENT = 100000;
+const MAX_RENT = 50000000;
+
+export default function PricingStep({
+  draft,
+  onNext,
+}: {
+  draft: DraftListing;
+  onNext: (patch: DraftListing) => void;
+}) {
+  const [rent, setRent] = useState(
+    draft.pricing?.annualRent ? String(draft.pricing.annualRent) : '',
+  );
+  const [caution, setCaution] = useState(draft.pricing?.cautionDepositMonths ?? 12);
+  const [serviceCharge, setServiceCharge] = useState(
+    draft.pricing?.serviceCharge ? String(draft.pricing.serviceCharge) : '0',
+  );
+  const [error, setError] = useState('');
+
+  const parsedRent = parseInt(rent.replace(/[^0-9]/g, ''), 10);
+  const rentValid = !Number.isNaN(parsedRent) && parsedRent >= MIN_RENT && parsedRent <= MAX_RENT;
+
+  function handleNext() {
+    if (!rentValid) {
+      setError(
+        `Annual rent must be between ₦${MIN_RENT.toLocaleString('en-US')} and ₦${MAX_RENT.toLocaleString('en-US')}.`,
+      );
+      return;
+    }
+    const parsedService = parseInt(serviceCharge.replace(/[^0-9]/g, ''), 10);
+
+    setError('');
+    onNext({
+      pricing: {
+        annualRent: parsedRent,
+        cautionDepositMonths: caution,
+        serviceCharge: Number.isNaN(parsedService) ? 0 : parsedService,
+      },
+    });
+  }
+
+  return (
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <Text style={styles.heading}>Set your rent</Text>
+
+      <TextField
+        label="Annual rent (₦)"
+        value={rent}
+        onChangeText={setRent}
+        placeholder="1000000"
+        keyboardType="default"
+      />
+
+      <Text style={styles.label}>Caution deposit</Text>
+      <View style={styles.chips}>
+        {CAUTION_MONTHS.map(m => (
+          <Chip
+            key={m}
+            label={`${m} months`}
+            selected={caution === m}
+            onPress={() => setCaution(m)}
+          />
+        ))}
+      </View>
+
+      <TextField
+        label="Service charge (₦ per year, 0 if none)"
+        value={serviceCharge}
+        onChangeText={setServiceCharge}
+        placeholder="0"
+      />
+
+      {/* Shows the landlord exactly what a tenant will see on their listing. */}
+      {rentValid && (
+        <>
+          <Text style={styles.previewLabel}>What tenants will see</Text>
+          <SavingsBreakdown annualRent={parsedRent} />
+        </>
+      )}
+
+      {!!error && <Text style={styles.error}>{error}</Text>}
+
+      <View style={styles.action}>
+        <Button label="Continue" onPress={handleNext} />
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: { padding: spacing.md, paddingBottom: spacing.xl },
+  heading: {
+    color: colors.textPrimary,
+    fontFamily: typography.families.display,
+    fontSize: typography.sizes.xl,
+    marginBottom: spacing.md,
+  },
+  label: {
+    color: colors.textSecondary,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.sm,
+    marginBottom: spacing.sm,
+  },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: spacing.md },
+  previewLabel: {
+    color: colors.textSecondary,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.sm,
+    marginTop: spacing.md,
+  },
+  error: {
+    color: colors.errorLight,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    marginTop: spacing.sm,
+  },
+  action: { marginTop: spacing.lg },
+});
