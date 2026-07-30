@@ -14,7 +14,7 @@ import { isSaved, toggleSaved } from '../services/saved';
 import { hasApplied } from '../services/applications';
 import { useAuth } from '../context/AuthContext';
 import { primaryImageSource } from '../lib/listingImage';
-import { IconSaved } from '../components/icons/Icon';
+import AnimatedSaveIcon from '../components/icons/AnimatedSaveIcon';
 import type { Listing } from '../types';
 
 /**
@@ -33,6 +33,8 @@ export default function ListingDetailScreen({ route }: Props) {
   const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+  // Bumped only by a deliberate save, so loading a saved listing stays still.
+  const [savePulse, setSavePulse] = useState(0);
   const [applied, setApplied] = useState(false);
 
   // Refetches on focus so returning from the enquiry form shows the sent state
@@ -77,6 +79,8 @@ export default function ListingDetailScreen({ route }: Props) {
     try {
       const next = await toggleSaved(profile.uid, listingId);
       setSaved(next);
+      // Only saving plays the motion. Unsaving is a removal, not an arrival.
+      if (next) setSavePulse(current => current + 1);
       // Saving is a commitment, so it earns a firmer tap than navigation does.
       Haptics.notificationAsync(
         next
@@ -169,7 +173,7 @@ export default function ListingDetailScreen({ route }: Props) {
         <Button
           label={saved ? 'Saved' : 'Save this property'}
           variant="secondary"
-          icon={<IconSaved size={18} color={colors.accentGold} filled={saved} />}
+          icon={<AnimatedSaveIcon saved={saved} pulse={savePulse} size={18} color={colors.accentGold} />}
           onPress={handleToggleSave}
         />
       </View>

@@ -72,13 +72,30 @@ export function IconListings({ size = 24, color = colors.textSecondary, filled }
   );
 }
 
-/** Saved — a geometric heart, built from two arcs and a vee rather than a soft blob. */
+/**
+ * Saved — a floppy disk, the desktop save glyph.
+ *
+ * Three parts, same as the object: the body with its clipped corner, the metal
+ * shutter across the top, and the label below. The label fills when the
+ * property is saved, so the state reads at a glance rather than depending on
+ * the whole shape darkening.
+ */
 export function IconSaved({ size = 24, color = colors.textSecondary, filled }: IconProps) {
   return (
     <Svg {...baseProps(size, color)}>
       <Path
-        d="M12 20.5 4.8 13.3a4.6 4.6 0 0 1 0-6.5 4.6 4.6 0 0 1 6.5 0l.7.7.7-.7a4.6 4.6 0 0 1 6.5 0 4.6 4.6 0 0 1 0 6.5Z"
+        d="M5.5 3.5h9.7l5.3 5.3v9.7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z"
         fill={filled ? color : 'none'}
+        fillOpacity={filled ? 0.14 : 0}
+      />
+      <Rect x="8" y="3.5" width="6" height="4.7" />
+      <Rect
+        x="7"
+        y="13.2"
+        width="10"
+        height="7.3"
+        fill={filled ? color : 'none'}
+        fillOpacity={filled ? 0.9 : 0}
       />
     </Svg>
   );
