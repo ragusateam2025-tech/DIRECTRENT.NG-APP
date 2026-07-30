@@ -56,11 +56,12 @@ export async function fetchMyListings(ownerId: string): Promise<LandlordListing[
 export async function saveDraft(
   listingId: string,
   ownerId: string,
+  ownerName: string,
   partial: Partial<Listing>,
 ): Promise<void> {
   await setDoc(
     doc(db, COLLECTIONS.listings, listingId),
-    { ...partial, ownerId, status: { listing: 'draft' as ListingStatus } },
+    { ...partial, ownerId, ownerName, status: { listing: 'draft' as ListingStatus } },
     { merge: true },
   );
 }

@@ -117,6 +117,25 @@ export function IconEnquiries({ size = 24, color = colors.textSecondary, filled 
   );
 }
 
+/**
+ * Messages — a speech bubble, kept distinct from Enquiries.
+ *
+ * Enquiries is the direct line: a formal request with a status. This is the
+ * talking that happens around it, so it takes the conversational shape rather
+ * than a second variation on the line.
+ */
+export function IconMessages({ size = 24, color = colors.textSecondary, filled }: IconProps) {
+  return (
+    <Svg {...baseProps(size, color)}>
+      <Path
+        d="M20.5 12.8a7.7 7.7 0 0 1-8.3 7.7L5 21.5l1.2-4.3a7.7 7.7 0 1 1 14.3-4.4Z"
+        fill={filled ? color : 'none'}
+        fillOpacity={filled ? 0.14 : 0}
+      />
+    </Svg>
+  );
+}
+
 /** Profile — a circle and a shoulder line, on the same geometric grid. */
 export function IconProfile({ size = 24, color = colors.textSecondary, filled }: IconProps) {
   return (

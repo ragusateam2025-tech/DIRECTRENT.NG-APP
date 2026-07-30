@@ -11,12 +11,15 @@ import ListingDetailScreen from '../screens/ListingDetailScreen';
 import ApplyScreen from '../screens/ApplyScreen';
 import MyPropertiesScreen from '../screens/landlord/MyPropertiesScreen';
 import AddPropertyScreen from '../screens/landlord/AddPropertyScreen';
+import MessagesScreen from '../screens/MessagesScreen';
+import ChatScreen from '../screens/ChatScreen';
 import { useAuth } from '../context/AuthContext';
 import {
   IconBrowse,
   IconListings,
   IconSaved,
   IconEnquiries,
+  IconMessages,
   IconProfile,
 } from '../components/icons/Icon';
 
@@ -24,6 +27,7 @@ export type BrowseStackParams = {
   BrowseList: undefined;
   ListingDetail: { listingId: string };
   Apply: { listingId: string };
+  Chat: { conversationId: string };
 };
 
 export type LandlordStackParams = {
@@ -31,11 +35,18 @@ export type LandlordStackParams = {
   AddProperty: { draftId?: string };
   LandlordListingDetail: { listingId: string };
   Apply: { listingId: string };
+  Chat: { conversationId: string };
+};
+
+export type MessagesStackParams = {
+  MessagesList: undefined;
+  Chat: { conversationId: string };
 };
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator<BrowseStackParams>();
 const LandlordStack = createNativeStackNavigator<LandlordStackParams>();
+const MessagesStack = createNativeStackNavigator<MessagesStackParams>();
 
 const stackScreenOptions = {
   headerStyle: { backgroundColor: colors.background },
@@ -58,7 +69,28 @@ function BrowseStack() {
         component={ApplyScreen}
         options={{ title: 'Enquire' }}
       />
+      {/* Also here, not only in the Messages tab: messaging a landlord starts
+          from the property, and bouncing the user to another tab mid-thought
+          would lose their place in the listing. */}
+      <Stack.Screen name="Chat" component={ChatScreen} options={{ title: 'Conversation' }} />
     </Stack.Navigator>
+  );
+}
+
+function MessagesFlow() {
+  return (
+    <MessagesStack.Navigator screenOptions={stackScreenOptions}>
+      <MessagesStack.Screen
+        name="MessagesList"
+        component={MessagesScreen}
+        options={{ headerShown: false }}
+      />
+      <MessagesStack.Screen
+        name="Chat"
+        component={ChatScreen}
+        options={{ title: 'Conversation' }}
+      />
+    </MessagesStack.Navigator>
   );
 }
 
@@ -86,6 +118,11 @@ function LandlordFlow() {
         name="Apply"
         component={ApplyScreen}
         options={{ title: 'Enquire' }}
+      />
+      <LandlordStack.Screen
+        name="Chat"
+        component={ChatScreen}
+        options={{ title: 'Conversation' }}
       />
     </LandlordStack.Navigator>
   );
@@ -161,6 +198,11 @@ export default function AppTabs() {
       {isTenant && (
         <Tab.Screen name="Saved" component={SavedScreen} options={{ tabBarIcon: tabIcon(IconSaved) }} />
       )}
+      <Tab.Screen
+        name="Messages"
+        component={MessagesFlow}
+        options={{ tabBarIcon: tabIcon(IconMessages) }}
+      />
       <Tab.Screen
         name="Enquiries"
         component={EnquiriesScreen}

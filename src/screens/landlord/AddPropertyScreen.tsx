@@ -67,7 +67,7 @@ export default function AddPropertyScreen() {
     setDraft(merged);
     if (!profile) return;
     try {
-      await saveDraft(listingId.current, profile.uid, merged);
+      await saveDraft(listingId.current, profile.uid, profile.fullName, merged);
     } catch {
       // A failed autosave must not block the landlord mid-form. The next step
       // writes the whole draft again, so one lost save is recoverable.

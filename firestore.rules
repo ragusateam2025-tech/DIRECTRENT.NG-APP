@@ -74,5 +74,56 @@ service cloud.firestore {
       // them. A tenant withdraws by setting status instead.
       allow delete: if false;
     }
+
+    // A conversation is private to its two participants.
+    //
+    // FEATURE_SPEC_PART3.md §8.1 routes message writes through Cloud Functions.
+    // This app writes to Firestore from the client throughout — listings,
+    // applications and saved all do — so these rules carry the validation the
+    // function would have done: the sender must be a participant, and must be
+    // themselves.
+    match /conversations/{conversationId} {
+      function participants() {
+        return resource.data.participants;
+      }
+
+      allow read: if request.auth != null
+                  && request.auth.uid in participants();
+
+      // Either party may open the thread, and must include themselves in it.
+      allow create: if request.auth != null
+                    && request.auth.uid in request.resource.data.participants
+                    && request.resource.data.participants.size() == 2;
+
+      // Participants update the thread summary as messages are sent, and clear
+      // their own unread count. Who is in the conversation cannot change.
+      allow update: if request.auth != null
+                    && request.auth.uid in participants()
+                    && request.resource.data.participants == resource.data.participants
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['lastMessage', 'lastMessageAt', 'lastSenderId', 'unread']);
+
+      // A conversation is a record for both sides. Neither party erases it.
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        function inConversation() {
+          return request.auth.uid in
+            get(/databases/$(database)/documents/conversations/$(conversationId))
+              .data.participants;
+        }
+
+        allow read: if request.auth != null && inConversation();
+
+        // A message may only be created in the sender's own name, and only by
+        // someone in the conversation.
+        allow create: if request.auth != null
+                      && inConversation()
+                      && request.resource.data.senderId == request.auth.uid;
+
+        // What was said stands. Neither party edits or removes it afterwards.
+        allow update, delete: if false;
+      }
+    }
   }
 }

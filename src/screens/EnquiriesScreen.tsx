@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { colors, typography, spacing, radius } from '../theme/tokens';
 import { duration, easing, stagger } from '../theme/motion';
@@ -15,6 +15,8 @@ import {
   LEASE_LABELS,
   STATUS_LABELS,
 } from '../services/applications';
+import { ensureConversationFromApplication } from '../services/messages';
+import { IconMessages } from '../components/icons/Icon';
 import { useAuth } from '../context/AuthContext';
 import type { Application, ApplicationStatus } from '../types';
 
@@ -29,6 +31,7 @@ type Tab = 'sent' | 'received';
 
 export default function EnquiriesScreen() {
   const { profile } = useAuth();
+  const navigation = useNavigation<any>();
   const [tab, setTab] = useState<Tab>('sent');
   const [sent, setSent] = useState<Application[]>([]);
   const [received, setReceived] = useState<Application[]>([]);
@@ -41,6 +44,29 @@ export default function EnquiriesScreen() {
   React.useEffect(() => {
     if (!isTenant && isLandlord) setTab('received');
   }, [isTenant, isLandlord]);
+
+  /**
+   * Opens the thread for an enquiry.
+   *
+   * The landlord's name is only knowable when the landlord is the one tapping;
+   * a tenant opening from here falls back until the thread already exists, at
+   * which point the stored name is used.
+   */
+  async function openConversation(application: Application) {
+    if (!profile) return;
+    try {
+      const conversation = await ensureConversationFromApplication(
+        application,
+        profile.uid === application.landlordId ? profile.fullName : 'The landlord',
+      );
+      navigation.navigate('Messages', {
+        screen: 'Chat',
+        params: { conversationId: conversation.id },
+      });
+    } catch {
+      // Non-fatal — the list stays put and the tap can be repeated.
+    }
+  }
 
   const load = useCallback(async () => {
     if (!profile) {
@@ -126,6 +152,7 @@ export default function EnquiriesScreen() {
             index={index}
             asLandlord={tab === 'received'}
             onRespond={respond}
+            onMessage={openConversation}
           />
         )}
       />
@@ -159,11 +186,13 @@ function ApplicationRow({
   index,
   asLandlord,
   onRespond,
+  onMessage,
 }: {
   application: Application;
   index: number;
   asLandlord: boolean;
   onRespond: (a: Application, status: ApplicationStatus) => void;
+  onMessage: (a: Application) => void;
 }) {
   return (
     <Animated.View
@@ -200,6 +229,22 @@ function ApplicationRow({
       </View>
 
       <Text style={styles.message}>{application.message}</Text>
+
+      {/* Available whatever the status: a declined enquiry is often the start
+          of a conversation about a different property. */}
+      <Pressable
+        onPress={() => onMessage(application)}
+        accessibilityRole="button"
+        accessibilityLabel={
+          asLandlord ? `Message ${application.tenantName}` : 'Message the landlord'
+        }
+        style={({ pressed }) => [styles.messageAction, pressed && styles.messageActionPressed]}
+      >
+        <IconMessages size={15} color={colors.accentGold} />
+        <Text style={styles.messageActionText}>
+          {asLandlord ? `Message ${application.tenantName.split(' ')[0]}` : 'Message the landlord'}
+        </Text>
+      </Pressable>
 
       {asLandlord && application.status === 'pending' && (
         <View style={styles.actions}>
@@ -312,6 +357,24 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     lineHeight: 21,
     marginTop: spacing.sm,
+  },
+  messageAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginTop: spacing.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.borderGold,
+    borderRadius: radius.sm,
+  },
+  messageActionPressed: { opacity: 0.85 },
+  messageActionText: {
+    color: colors.accentGold,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.xs,
+    marginLeft: spacing.xs,
   },
   actions: { flexDirection: 'row', marginTop: spacing.md },
   action: {

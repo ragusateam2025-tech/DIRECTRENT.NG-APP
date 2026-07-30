@@ -15,6 +15,8 @@ import { hasApplied } from '../services/applications';
 import { useAuth } from '../context/AuthContext';
 import { primaryImageSource } from '../lib/listingImage';
 import AnimatedSaveIcon from '../components/icons/AnimatedSaveIcon';
+import { IconMessages } from '../components/icons/Icon';
+import { ensureConversation } from '../services/messages';
 import type { Listing } from '../types';
 
 /**
@@ -36,6 +38,7 @@ export default function ListingDetailScreen({ route }: Props) {
   // Bumped only by a deliberate save, so loading a saved listing stays still.
   const [savePulse, setSavePulse] = useState(0);
   const [applied, setApplied] = useState(false);
+  const [messaging, setMessaging] = useState(false);
 
   // Refetches on focus so returning from the enquiry form shows the sent state
   // without a manual reload.
@@ -73,6 +76,29 @@ export default function ListingDetailScreen({ route }: Props) {
       };
     }, [listingId, profile]),
   );
+
+  /**
+   * Opens the thread for this property, creating it on first contact.
+   *
+   * A landlord viewing their own listing has nobody to message, so the button
+   * is hidden for them rather than opening a conversation with themselves.
+   */
+  async function handleMessageLandlord() {
+    if (!profile || !listing || messaging) return;
+    setMessaging(true);
+    try {
+      const conversation = await ensureConversation(
+        listing,
+        profile,
+        listing.ownerName ?? 'The landlord',
+      );
+      navigation.navigate('Chat', { conversationId: conversation.id });
+    } catch {
+      // Non-fatal — the screen stays put and the tenant can retry.
+    } finally {
+      setMessaging(false);
+    }
+  }
 
   async function handleToggleSave() {
     if (!profile) return;
@@ -169,6 +195,18 @@ export default function ListingDetailScreen({ route }: Props) {
           disabled={applied}
           feedback="medium"
         />
+        {listing.ownerId !== profile?.uid && (
+          <>
+            <View style={styles.actionSpacer} />
+            <Button
+              label="Message the landlord"
+              variant="secondary"
+              loading={messaging}
+              icon={<IconMessages size={18} color={colors.accentGold} />}
+              onPress={handleMessageLandlord}
+            />
+          </>
+        )}
         <View style={styles.actionSpacer} />
         <Button
           label={saved ? 'Saved' : 'Save this property'}

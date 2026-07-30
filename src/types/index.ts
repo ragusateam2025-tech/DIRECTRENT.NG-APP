@@ -38,6 +38,54 @@ export interface Application {
   createdAt: number;
 }
 
+/**
+ * A conversation between one tenant and one landlord about one property.
+ *
+ * Shape follows Conversation in FEATURE_SPEC_PART3.md §8.1.1, trimmed to what
+ * a text thread needs. Denormalises the property title and the other party's
+ * name for the same reason Application does: the conversation list would
+ * otherwise need two extra reads per row.
+ */
+export interface Conversation {
+  /** `{listingId}_{tenantId}` — one thread per tenant per property. */
+  id: string;
+  listingId: string;
+  landlordId: string;
+  tenantId: string;
+  /**
+   * Both uids in one array. Firestore cannot OR across two fields, so this is
+   * what lets a single array-contains query find every thread a user is in.
+   */
+  participants: string[];
+  landlordName: string;
+  tenantName: string;
+  /** Copied at creation so the row reads correctly if the listing changes. */
+  listingTitle: string;
+  listingArea: string;
+  lastMessage: string;
+  lastMessageAt: number;
+  lastSenderId: string;
+  /** Unread count per participant uid. Cleared when that user opens the thread. */
+  unread: Record<string, number>;
+  createdAt: number;
+}
+
+/**
+ * Text only for now. The spec defines image, document, property_card,
+ * schedule_viewing, payment_request and location types; the field is kept so
+ * those can be added without a migration.
+ */
+export type MessageType = 'text';
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  type: MessageType;
+  text: string;
+  createdAt: number;
+}
+
 export type PropertyType =
   | 'self_contained'
   | 'mini_flat'
@@ -90,6 +138,15 @@ export interface Listing {
    * rule keys off this — see firestore.rules. Immutable after creation.
    */
   ownerId: string;
+  /**
+   * The landlord's display name, copied at creation.
+   *
+   * Denormalised because a tenant cannot read the landlord's user document —
+   * firestore.rules restricts /users/{uid} to that user alone — so this is the
+   * only way a conversation can be labelled with a human name. Absent on the
+   * seeded demo listings, which predate it.
+   */
+  ownerName?: string;
   basicInfo: {
     title: string;
     propertyType: PropertyType;

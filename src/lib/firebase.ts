@@ -17,4 +17,6 @@ export const COLLECTIONS = {
   listings: 'listings',
   saved: 'saved',
   applications: 'applications',
+  conversations: 'conversations',
+  messages: 'messages',
 } as const;
