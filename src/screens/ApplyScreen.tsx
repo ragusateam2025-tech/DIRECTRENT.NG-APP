@@ -14,6 +14,7 @@ import {
   MOVE_IN_LABELS,
   LEASE_LABELS,
 } from '../services/applications';
+import { ensureConversation, sendMessage } from '../services/messages';
 import { fetchListing } from '../services/listings';
 import { useAuth } from '../context/AuthContext';
 import type { Listing, MoveInTiming, LeaseDuration } from '../types';
@@ -45,6 +46,26 @@ export default function ApplyScreen() {
     };
   }, [listingId]);
 
+  /**
+   * Turns the form answers into the message the owner actually reads.
+   *
+   * The answers lead and the tenant's own words close it, because an owner
+   * scanning a thread wants the facts — when, how long, how many — before the
+   * pitch. Written as a sentence rather than a labelled block: it has to look
+   * like something a person sent, not a form submission pasted into a chat.
+   */
+  function openingMessage(target: Listing, count: number): string {
+    const when = MOVE_IN_LABELS[moveIn].toLowerCase();
+    const term = LEASE_LABELS[leaseMonths].toLowerCase();
+    const people = count === 1 ? '1 occupant' : `${count} occupants`;
+
+    return (
+      `Hello — I am interested in ${target.basicInfo.title}. ` +
+      `Looking to move in ${when}, for ${term}, with ${people}.\n\n` +
+      message.trim()
+    );
+  }
+
   async function handleSubmit() {
     if (!listing || !profile) return;
 
@@ -75,11 +96,22 @@ export default function ApplyScreen() {
         occupants: count,
         message,
       });
-      Alert.alert(
-        'Enquiry sent',
-        'The property owner has your details and will reply through Directrent. You can track this under Enquiries.',
-        [{ text: 'Done', onPress: () => navigation.goBack() }],
+
+      // The enquiry opens the conversation rather than sitting beside it.
+      //
+      // These used to be two separate acts: send an enquiry, and separately
+      // message the owner — which meant a tenant introduced themselves twice
+      // and an owner read the same person in two places. Now the answers become
+      // the opening message, and the thread continues from there.
+      const conversation = await ensureConversation(
+        listing,
+        profile,
+        listing.ownerName ?? 'The property owner',
       );
+
+      await sendMessage(conversation, profile.uid, openingMessage(listing, count));
+
+      navigation.replace('Chat', { conversationId: conversation.id });
     } catch (err: any) {
       setError(
         err?.message?.includes('permission')
@@ -165,7 +197,7 @@ export default function ApplyScreen() {
 
         <View style={styles.action}>
           <Button
-            label={submitting ? 'Sending…' : 'Send enquiry'}
+            label={submitting ? 'Sending…' : 'Send message'}
             onPress={handleSubmit}
             loading={submitting}
             feedback="medium"

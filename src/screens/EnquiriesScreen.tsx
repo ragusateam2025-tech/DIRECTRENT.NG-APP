@@ -236,13 +236,13 @@ function ApplicationRow({
         onPress={() => onMessage(application)}
         accessibilityRole="button"
         accessibilityLabel={
-          asLandlord ? `Message ${application.tenantName}` : 'Message the property owner'
+          asLandlord ? `Message ${application.tenantName}` : 'Message property owner'
         }
         style={({ pressed }) => [styles.messageAction, pressed && styles.messageActionPressed]}
       >
         <IconMessages size={15} color={colors.accentGold} />
         <Text style={styles.messageActionText}>
-          {asLandlord ? `Message ${application.tenantName.split(' ')[0]}` : 'Message the property owner'}
+          {asLandlord ? `Message ${application.tenantName.split(' ')[0]}` : 'Message property owner'}
         </Text>
       </Pressable>
 

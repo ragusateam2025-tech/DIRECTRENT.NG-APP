@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View, Pressable} from 'react-native';
 import { colors, typography, spacing, radius } from '../../../theme/tokens';
 import TextField from '../../../components/TextField';
+import { useAuth } from '../../../context/AuthContext';
 import Button from '../../../components/Button';
 import { Chip } from './BasicInfoStep';
 import { formatNaira } from '../../../lib/format';
+import { formatNigerianPhone } from '../../../lib/phone';
+import { IconCheck } from '../../../components/icons/Icon';
 import type { DraftListing } from '../AddPropertyScreen';
 
 /** Common amenities in Lagos rentals, matching the seeded listings' vocabulary. */
@@ -32,12 +35,16 @@ export default function DetailsStep({
   onPublish: (patch: DraftListing) => void;
   publishing: boolean;
 }) {
+  const { profile } = useAuth();
   const [description, setDescription] = useState(draft.details?.description ?? '');
   const [amenities, setAmenities] = useState<string[]>(draft.details?.amenities ?? []);
   const [maxOccupants, setMaxOccupants] = useState(
     String(draft.details?.maxOccupants ?? 3),
   );
   const [error, setError] = useState('');
+  // Defaults to off. Sharing a personal number should be a deliberate yes,
+  // never something an owner discovers they agreed to by not noticing.
+  const [callable, setCallable] = useState(!!draft.ownerPhone);
 
   function toggleAmenity(a: string) {
     setAmenities(prev => (prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]));
@@ -63,6 +70,10 @@ export default function DetailsStep({
         amenities,
         maxOccupants: occupants,
       },
+      // Explicitly null rather than undefined when off. Firestore rejects
+      // undefined outright, and a merged write would leave a previously
+      // shared number published after the owner turned the choice off.
+      ownerPhone: callable && profile?.phone ? profile.phone : null,
     });
   }
 
@@ -118,16 +129,46 @@ export default function DetailsStep({
           </View>
         </View>
         <Text style={styles.reviewNote}>
-          Your listing goes to us for a quick review before tenants see it. You can
-          keep editing it in the meantime.
+          Your listing goes live as soon as you publish it. You can edit or remove it
+          at any time from My properties.
         </Text>
       </View>
+
+      <Text style={styles.heading}>Can tenants call you?</Text>
+
+      {profile?.phone ? (
+        <Pressable
+          onPress={() => setCallable(current => !current)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: callable }}
+          accessibilityLabel={`Let tenants call me on ${formatNigerianPhone(profile.phone)}`}
+          style={({ pressed }) => [styles.consent, pressed && styles.consentPressed]}
+        >
+          <View style={[styles.box, callable && styles.boxChecked]}>
+            {callable && <IconCheck size={14} color={colors.primaryDark} />}
+          </View>
+          <View style={styles.consentCopy}>
+            <Text style={styles.consentLabel}>
+              Let tenants call me on {formatNigerianPhone(profile.phone)}
+            </Text>
+            <Text style={styles.consentNote}>
+              Anyone viewing this listing will see your number and can ring you
+              directly. Leave it off and tenants can still message you in the app.
+            </Text>
+          </View>
+        </Pressable>
+      ) : (
+        <Text style={styles.consentNote}>
+          Add a phone number to your profile first, and you can let tenants call you
+          about this property.
+        </Text>
+      )}
 
       {!!error && <Text style={styles.error}>{error}</Text>}
 
       <View style={styles.action}>
         <Button
-          label={publishing ? 'Submitting…' : 'Submit for review'}
+          label={publishing ? 'Publishing…' : 'Publish listing'}
           onPress={handlePublish}
           loading={publishing}
           feedback="medium"
@@ -152,6 +193,35 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: spacing.md },
+  consent: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.md },
+  consentPressed: { opacity: 0.85 },
+  /** Squared to match the controls elsewhere, and sized for a comfortable tap. */
+  box: {
+    width: 22,
+    height: 22,
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+    marginTop: 2,
+  },
+  boxChecked: { backgroundColor: colors.accentGold, borderColor: colors.accentGold },
+  consentCopy: { flex: 1 },
+  consentLabel: {
+    color: colors.textPrimary,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.sm,
+  },
+  consentNote: {
+    color: colors.textMuted,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.xs,
+    lineHeight: 18,
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
+  },
   summary: {
     backgroundColor: colors.backgroundPaper,
     borderRadius: radius.lg,

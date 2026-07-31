@@ -1,5 +1,14 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -8,6 +17,7 @@ import { duration, easing, stagger } from '../theme/motion';
 import Button from '../components/Button';
 import SavingsBreakdown from '../components/SavingsBreakdown';
 import { formatNaira } from '../lib/format';
+import { formatNigerianPhone } from '../lib/phone';
 import { fetchListing } from '../services/listings';
 import { isSaved, toggleSaved } from '../services/saved';
 import { hasApplied } from '../services/applications';
@@ -16,7 +26,7 @@ import { allImageSources } from '../lib/listingImage';
 import PhotoGallery from '../components/PhotoGallery';
 import LiveTourBanner from '../components/LiveTourBanner';
 import AnimatedSaveIcon from '../components/icons/AnimatedSaveIcon';
-import { IconMessages } from '../components/icons/Icon';
+import { IconMessages, IconChevron, IconCall } from '../components/icons/Icon';
 import { ensureConversation } from '../services/messages';
 import type { Listing } from '../types';
 
@@ -40,6 +50,7 @@ export default function ListingDetailScreen({ route }: Props) {
   const [savePulse, setSavePulse] = useState(0);
   const [applied, setApplied] = useState(false);
   const [messaging, setMessaging] = useState(false);
+  const [amenitiesOpen, setAmenitiesOpen] = useState(false);
 
   // Refetches on focus so returning from the enquiry form shows the sent state
   // without a manual reload.
@@ -99,6 +110,30 @@ export default function ListingDetailScreen({ route }: Props) {
     } finally {
       setMessaging(false);
     }
+  }
+
+  /**
+   * Places the call through the phone's own dialler.
+   *
+   * Out of app deliberately: it uses the network the tenant already pays for,
+   * works on a weak connection where voice over data would not, and shows the
+   * owner a real number they can call back. In-app voice needs a provider and
+   * is not wired up — see the note where the number is resolved.
+   */
+  function handleCall() {
+    const number = listing?.ownerPhone;
+
+    if (!number) {
+      Alert.alert(
+        'No number listed',
+        'This owner has not shared a phone number. Send them a message instead and they can reply with one.',
+      );
+      return;
+    }
+
+    Linking.openURL(`tel:${number}`).catch(() => {
+      Alert.alert('Could not open the dialler', `Call ${formatNigerianPhone(number)} directly.`);
+    });
   }
 
   async function handleToggleSave() {
@@ -173,37 +208,79 @@ export default function ListingDetailScreen({ route }: Props) {
       <Text style={styles.sectionHeading}>About this property</Text>
       <Text style={styles.description}>{listing.details.description}</Text>
 
-      <Text style={styles.sectionHeading}>Amenities</Text>
-      <View style={styles.amenities}>
-        {listing.details.amenities.map(amenity => (
-          <View key={amenity} style={styles.amenityChip}>
-            <Text style={styles.amenityText}>{amenity}</Text>
+      {/*
+        Collapsed by default. Amenities are a checklist someone consults once
+        they are already interested, and listing them in full pushes the two
+        things that decide interest — the savings and the enquiry button —
+        further down the screen. The count is on the header so it stays useful
+        while closed: "8 listed" answers the question most people are asking
+        without opening anything.
+      */}
+      <Pressable
+        onPress={() => setAmenitiesOpen(open => !open)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: amenitiesOpen }}
+        accessibilityLabel={`Amenities, ${listing.details.amenities.length} listed`}
+        style={({ pressed }) => [styles.disclosure, pressed && styles.disclosurePressed]}
+      >
+        <Text style={[styles.sectionHeading, styles.disclosureHeading]}>Amenities</Text>
+        <View style={styles.disclosureRight}>
+          <Text style={styles.disclosureCount}>
+            {listing.details.amenities.length} listed
+          </Text>
+          <View style={amenitiesOpen ? styles.chevronOpen : undefined}>
+            <IconChevron size={18} color={colors.accentGold} />
           </View>
-        ))}
-      </View>
+        </View>
+      </Pressable>
+
+      {amenitiesOpen && (
+        <Animated.View
+          entering={FadeIn.duration(duration.quick)}
+          style={styles.amenities}
+        >
+          {listing.details.amenities.map(amenity => (
+            <View key={amenity} style={styles.amenityChip}>
+              <Text style={styles.amenityText}>{amenity}</Text>
+            </View>
+          ))}
+        </Animated.View>
+      )}
 
       <View style={styles.actions}>
-        <Button
-          label={applied ? 'Enquiry sent' : 'Enquire about this property'}
-          onPress={() => navigation.navigate('Apply', { listingId })}
-          disabled={applied}
-          feedback="medium"
-        />
+        {/*
+          One way in, not two.
+
+          Enquiring and messaging were separate buttons that did nearly the
+          same thing, so a tenant introduced themselves twice and an owner read
+          the same person in two places. The enquiry answers are now how a
+          conversation opens: once one exists, this goes straight to it.
+        */}
         {listing.ownerId !== profile?.uid && (
           <>
+            <Button
+              label={applied ? 'Open conversation' : 'Message property owner'}
+              icon={<IconMessages size={18} color={colors.textPrimary} />}
+              loading={messaging}
+              onPress={
+                applied
+                  ? handleMessageLandlord
+                  : () => navigation.navigate('Apply', { listingId })
+              }
+              feedback="medium"
+            />
             <View style={styles.actionSpacer} />
             <Button
-              label="Message the property owner"
+              label="Call property owner"
               variant="secondary"
-              loading={messaging}
-              icon={<IconMessages size={18} color={colors.accentGold} />}
-              onPress={handleMessageLandlord}
+              icon={<IconCall size={18} color={colors.accentGold} />}
+              onPress={handleCall}
             />
           </>
         )}
         <View style={styles.actionSpacer} />
         <Button
-          label={saved ? 'Saved' : 'Save this property'}
+          label={saved ? 'Saved' : 'Save property'}
           variant="secondary"
           icon={<AnimatedSaveIcon saved={saved} pulse={savePulse} size={18} color={colors.accentGold} />}
           onPress={handleToggleSave}
@@ -294,9 +371,37 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   amenities: { flexDirection: 'row', flexWrap: 'wrap' },
+  /**
+   * Header row for a collapsible section. The heading keeps its own style so
+   * the section reads identically to the ones that do not collapse — nothing
+   * announces "this is a widget", only the count and the chevron.
+   */
+  disclosure: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    // The row owns the section spacing, not the heading inside it. Leaving it
+    // on the heading pushed the count and chevron out of line with the text
+    // they belong to.
+    marginTop: spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  disclosureHeading: { marginTop: 0, marginBottom: 0 },
+  disclosurePressed: { opacity: 0.85 },
+  disclosureRight: { flexDirection: 'row', alignItems: 'center' },
+  disclosureCount: {
+    color: colors.textMuted,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    marginRight: spacing.xs,
+  },
+  chevronOpen: { transform: [{ rotate: '180deg' }] },
+  /** Squared off to match the controls on Profile, standing on a ground line. */
   amenityChip: {
     backgroundColor: colors.backgroundElevated,
-    borderRadius: radius.sm,
+    borderRadius: 2,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.border,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     marginRight: spacing.sm,

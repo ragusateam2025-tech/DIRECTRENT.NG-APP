@@ -151,6 +151,16 @@ export interface Listing {
    * seeded demo listings, which predate it.
    */
   ownerName?: string;
+  /**
+   * Phone number tenants may call, normalised to +234XXXXXXXXXX.
+   *
+   * Deliberately NOT copied automatically from the owner's profile. Publishing
+   * someone's personal number to every stranger browsing listings is their
+   * decision to make, not a side effect of filling in a form — so this stays
+   * empty until the listing flow asks them, and the call button says no number
+   * is listed rather than guessing.
+   */
+  ownerPhone?: string | null;
   basicInfo: {
     title: string;
     propertyType: PropertyType;

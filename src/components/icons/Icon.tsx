@@ -226,6 +226,36 @@ export function IconPlus({ size = 24, color = colors.accentGold }: IconProps) {
   );
 }
 
+/**
+ * Call — a handset, drawn as one continuous run.
+ *
+ * The universal shape, and deliberately not reinvented: a call icon that needs
+ * working out is a call icon that fails. Built from the same arcs and angles as
+ * the rest so it sits in the set rather than beside it.
+ */
+export function IconCall({ size = 24, color = colors.accentGold }: IconProps) {
+  return (
+    <Svg {...baseProps(size, color)}>
+      <Path d="M8.4 4.2 6.1 3.6a1.6 1.6 0 0 0-1.9 1.1l-.5 2A2 2 0 0 0 4 8c1.4 5.3 5.7 9.6 11 11a2 2 0 0 0 1.3-.3l1.7-1a1.6 1.6 0 0 0 .6-2l-1-2.2a1.6 1.6 0 0 0-1.8-.9l-2 .5a10.6 10.6 0 0 1-4-4l.6-2a1.6 1.6 0 0 0-1-1.9Z" />
+    </Svg>
+  );
+}
+
+/**
+ * Chevron — a disclosure marker, pointing down when closed.
+ *
+ * Just the vee from the Check glyph, opened out and levelled. Reusing that
+ * angle rather than inventing a new one keeps the set from acquiring a second
+ * vocabulary of diagonals.
+ */
+export function IconChevron({ size = 24, color = colors.textSecondary }: IconProps) {
+  return (
+    <Svg {...baseProps(size, color)}>
+      <Path d="M6 9.5 12 15.5 18 9.5" />
+    </Svg>
+  );
+}
+
 export function IconCheck({ size = 24, color = colors.success }: IconProps) {
   return (
     <Svg {...baseProps(size, color)}>
