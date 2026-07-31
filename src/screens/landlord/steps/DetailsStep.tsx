@@ -129,8 +129,8 @@ export default function DetailsStep({
           </View>
         </View>
         <Text style={styles.reviewNote}>
-          Your listing goes live as soon as you publish it. You can edit or remove it
-          at any time from My properties.
+          Your listing goes live as soon as you publish it. Editing a published
+          listing is not possible yet — check it over before you publish.
         </Text>
       </View>
 
