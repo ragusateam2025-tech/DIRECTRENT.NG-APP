@@ -15,6 +15,7 @@ export default function MessagesScreen() {
   const navigation = useNavigation<any>();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!profile) {
@@ -24,10 +25,20 @@ export default function MessagesScreen() {
 
     // Live rather than fetch-on-focus: an owner sitting on this screen should
     // see a tenant's message land without pulling to refresh.
-    const unsubscribe = subscribeToConversations(profile.uid, next => {
-      setConversations(next);
-      setLoading(false);
-    });
+    const unsubscribe = subscribeToConversations(
+      profile.uid,
+      next => {
+        setConversations(next);
+        setError('');
+        setLoading(false);
+      },
+      () => {
+        // Something must be shown. A listener that fails leaves this screen
+        // spinning indefinitely otherwise, which reads as the app hanging.
+        setError('Messages are unavailable right now. Check your connection and try again.');
+        setLoading(false);
+      },
+    );
 
     return unsubscribe;
   }, [profile]);
@@ -49,11 +60,15 @@ export default function MessagesScreen() {
         keyExtractor={item => item.id}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <EmptyState
-            variant="empty"
-            title="No conversations yet"
-            body="Message a property owner from any listing and the conversation appears here."
-          />
+          error ? (
+            <EmptyState variant="noMatch" title="Cannot load messages" body={error} />
+          ) : (
+            <EmptyState
+              variant="empty"
+              title="No conversations yet"
+              body="Message a property owner from any listing and the conversation appears here."
+            />
+          )
         }
         renderItem={({ item, index }) => {
           const unread = profile ? (item.unread?.[profile.uid] ?? 0) : 0;

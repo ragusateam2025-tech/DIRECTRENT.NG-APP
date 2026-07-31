@@ -58,9 +58,17 @@ export default function ChatScreen({ route }: Props) {
         if (active) setLoading(false);
       });
 
-    const unsubscribe = subscribeToMessages(conversationId, next => {
-      if (active) setMessages(next);
-    });
+    const unsubscribe = subscribeToMessages(
+      conversationId,
+      next => {
+        if (active) setMessages(next);
+      },
+      () => {
+        // The thread stays on screen with whatever already arrived; only the
+        // loading state is released so it cannot hang.
+        if (active) setLoading(false);
+      },
+    );
 
     return () => {
       active = false;

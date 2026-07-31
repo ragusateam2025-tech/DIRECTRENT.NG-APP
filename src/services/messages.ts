@@ -115,12 +115,20 @@ export async function sendMessage(
 export function subscribeToMessages(
   id: string,
   onChange: (messages: Message[]) => void,
+  onError?: (error: Error) => void,
 ): () => void {
   const q = query(messagesRef(id), orderBy('createdAt', 'asc'));
 
-  return onSnapshot(q, snapshot => {
-    onChange(snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as Message));
-  });
+  return onSnapshot(
+    q,
+    snapshot => {
+      onChange(snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as Message));
+    },
+    // Without this the listener fails silently: the success callback never
+    // runs, so a screen waiting on it spins forever with nothing to act on.
+    // Unpublished rules and a missing index both land here.
+    error => onError?.(error),
+  );
 }
 
 /**
@@ -133,18 +141,23 @@ export function subscribeToMessages(
 export function subscribeToConversations(
   uid: string,
   onChange: (conversations: Conversation[]) => void,
+  onError?: (error: Error) => void,
 ): () => void {
   const q = query(
     collection(db, COLLECTIONS.conversations),
     where('participants', 'array-contains', uid),
   );
 
-  return onSnapshot(q, snapshot => {
-    const conversations = snapshot.docs
-      .map(d => d.data() as Conversation)
-      .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
-    onChange(conversations);
-  });
+  return onSnapshot(
+    q,
+    snapshot => {
+      const conversations = snapshot.docs
+        .map(d => d.data() as Conversation)
+        .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+      onChange(conversations);
+    },
+    error => onError?.(error),
+  );
 }
 
 /** Clears this user's unread count. Called when they open the thread. */

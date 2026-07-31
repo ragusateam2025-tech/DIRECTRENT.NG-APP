@@ -56,7 +56,46 @@ export async function fetchListings(options: ListingQuery = {}): Promise<Listing
   );
 
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as Listing);
+  const scoped = snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as Listing);
+
+  if (scoped.length > 0) return scoped;
+  return fetchLegacyListings(options, marketId);
+}
+
+/**
+ * TEMPORARY — delete once every listing document carries location.marketId.
+ *
+ * Listings written before the market field existed do not match the scoped
+ * query, so they vanished from Browse entirely. Firestore cannot express
+ * "field equals X or field is absent" in one query, so the unscoped read
+ * happens only when the scoped one found nothing, and its results are treated
+ * as belonging to the default market — true by definition, since Lagos was the
+ * only market when they were written.
+ *
+ * The cost of getting this wrong is bounded: it is one capped read, on an
+ * empty result, and it disappears the moment the backfill runs.
+ */
+async function fetchLegacyListings(
+  options: ListingQuery,
+  marketId: string,
+): Promise<Listing[]> {
+  const q = query(
+    collection(db, COLLECTIONS.listings),
+    where('status.listing', '==', 'active'),
+    limitTo(options.limit ?? PAGE_SIZE),
+  );
+
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs
+    .map(d => ({ id: d.id, ...d.data() }) as Listing)
+    .filter(l => {
+      // Only documents with no market at all are adopted. One that names a
+      // different market is not legacy data — it belongs somewhere else.
+      const listingMarket = l.location?.marketId;
+      if (listingMarket && listingMarket !== marketId) return false;
+      return options.area ? l.location?.area === options.area : true;
+    });
 }
 
 /**
