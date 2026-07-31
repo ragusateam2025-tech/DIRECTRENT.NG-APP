@@ -88,7 +88,7 @@ export default function DetailsStep({
         value={description}
         onChangeText={setDescription}
         placeholder="Two bedroom flat with both rooms en-suite, on a quiet residential street…"
-        autoCapitalize="words"
+        autoCapitalize="sentences"
       />
 
       <Text style={styles.label}>Amenities</Text>

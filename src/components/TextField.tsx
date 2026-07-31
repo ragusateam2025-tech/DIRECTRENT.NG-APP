@@ -8,7 +8,7 @@ interface TextFieldProps {
   onChangeText: (text: string) => void;
   placeholder?: string;
   secureTextEntry?: boolean;
-  autoCapitalize?: 'none' | 'words';
+  autoCapitalize?: 'none' | 'words' | 'sentences';
   keyboardType?: 'default' | 'email-address' | 'phone-pad';
   error?: string;
 }

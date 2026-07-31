@@ -256,7 +256,10 @@ export default function ListingDetailScreen({ route }: Props) {
           the same person in two places. The enquiry answers are now how a
           conversation opens: once one exists, this goes straight to it.
         */}
-        {listing.ownerId !== profile?.uid && (
+        {/* Requires a known owner as well as it not being you. Without the
+            first check a listing missing ownerId offers contact buttons that
+            cannot possibly work. */}
+        {!!listing.ownerId && listing.ownerId !== profile?.uid && (
           <>
             <Button
               label={applied ? 'Open conversation' : 'Message property owner'}

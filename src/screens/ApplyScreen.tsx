@@ -87,6 +87,17 @@ export default function ApplyScreen() {
       return;
     }
 
+    // A listing with no owner cannot be enquired about: there is nobody for the
+    // enquiry to reach and nobody to open a conversation with. Caught here so
+    // it reads as a broken listing rather than as a raw Firestore rejection
+    // about an undefined field, which is what it surfaced as before.
+    if (!listing.ownerId) {
+      setError(
+        'This listing has no owner on record, so it cannot be contacted. Please try another property.',
+      );
+      return;
+    }
+
     setError('');
     setSubmitting(true);
     try {
@@ -186,7 +197,7 @@ export default function ApplyScreen() {
           value={message}
           onChangeText={setMessage}
           placeholder="Tell them a little about yourself and when you would like to view the property."
-          autoCapitalize="words"
+          autoCapitalize="sentences"
           error={error}
         />
 
