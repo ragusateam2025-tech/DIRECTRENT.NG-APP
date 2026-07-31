@@ -10,7 +10,11 @@
 - **Workspace:** `C:\Projects\directrent.ng-app2`
 - **Platform:** React Native + Expo SDK 54 (TypeScript)
 - **Workflow:** **Expo Dev Client + native modules** (NOT Expo Go, NOT bare RN)
-- **Architecture:** **Single app with role-switching** — one user can be a tenant, a landlord, or both. The user picks/switches roles inside the app.
+- **Architecture:** **Single app with role-switching** — one user can be a tenant, a property owner, or both. The user picks/switches roles inside the app.
+- **Say "property owner", never "landlord", in anything a user reads.** The stored
+  role value is still the string `landlord` and the Firestore field is still
+  `landlordId` — those are data and must not be renamed without a migration.
+  Only the labels changed. The website has not had this pass yet.
 - **Target devices:** Physical Android device via USB (primary), Android emulator (backup)
 - **Host OS:** Windows 10, PowerShell, VS Code
 - **Package name:** `ng.directrent.app`
@@ -83,38 +87,56 @@ This project follows a unified single-instance workflow. The user has learned th
 - Dependencies installed: `expo-dev-client`, `expo-font`, `@expo-google-fonts/outfit`, `@expo-google-fonts/inter`, `react-native-safe-area-context`, `react-native-screens`, `@react-navigation/native`, `@react-navigation/native-stack`, `@react-navigation/bottom-tabs`
 - `src/theme/tokens.ts` — design tokens (colors, typography, spacing, radius) matching DIRECTRENT_MOBILE_HANDOFF.md
 - `src/theme/ThemeProvider.tsx` — theme provider with Outfit + Inter font loading and `useTheme()` hook
-- `app.json` — configured for Dev Client (`scheme: directrent`, `android.package: ng.directrent.app`, `userInterfaceStyle: dark`, `plugins: [expo-dev-client, expo-font]`)
-- `App.tsx` — Hello Directrent screen with split "Direct" (white) + "rent" (gold) wordmark, tagline, "Foundation Ready" coral pill
+- `app.json` — configured for Dev Client (`scheme: directrent`, `android.package: ng.directrent.app`, `userInterfaceStyle: dark`)
 - `npx expo prebuild --clean --platform android` ran successfully — `android/` folder generated
-- `npx expo run:android` built and installed the Dev Client on the user's physical Samsung device
-- Dev Client launcher screen confirmed visible on device
-- Foundation Ready screen confirmed visible on device after connecting to Metro
+- Dev Client built and installed on the physical Samsung device
 
-### ⏳ Prompt 2 — Auth + Firebase (NOT STARTED)
+The placeholder "Foundation Ready" screen this prompt produced is long gone —
+`App.tsx` now mounts the auth and navigation tree.
 
-Will deliver:
-- Firebase project setup (user-provided credentials)
-- `@react-native-firebase/app`, `auth`, `firestore` native modules
-- Auth context with TypeScript types
-- Signup, Login, Phone OTP, Role Selection screens
-- Persistent session, logout
-- Stub home screen with role-switcher in header
+### ✅ Prompt 2 — Auth + Firebase (COMPLETE)
 
-Schemas, error codes, and security rules for this phase live in `MASTER_PRD_PART2.md` — read it before starting Prompt 2.
+Firebase project `directrent-prod` exists. `@react-native-firebase/app`, `auth`,
+`firestore` and `storage` are installed and linked. Auth context in
+`src/context/AuthContext.tsx` covers signup, login, logout, persistent session,
+role selection and role switching. Phone OTP was **not** built — accounts are
+email and password.
 
-### ⏳ Prompt 3 — Listings Vertical Slice (NOT STARTED)
+### ✅ Prompt 3 — Listings Vertical Slice (COMPLETE)
 
-Will deliver:
-- Firestore listings collection schema (see `MASTER_PRD_PART2.md`)
-- Seed data (6 fake Yaba/Surulere properties)
-- Listings browse screen with property cards (see `FEATURE_SPEC.md`)
-- Listing detail screen
-- Savings calculator (₦300,000 at ₦1M rent, "Traditional Fees (Agent + Legal + Misc)" labeling)
-- Bottom tab navigation: Browse / Saved / Messages / Profile
+Browse with search and filters, listing detail with the savings breakdown,
+saved properties, and the five-tab navigation. Six seeded Yaba/Surulere
+listings live in Firestore (not in code — `SEED_LISTINGS` is imported nowhere).
 
-### ⏳ Future scope (post-vertical-slice)
+### ✅ Built after Prompt 3
 
-Paystack escrow, Dojah BVN/NIN verification, listing creation for landlords, in-app messaging, lease generation, push notifications. All scoped in the MASTER_PRD and FEATURE_SPEC documents.
+- **Owner listing flow** — five-step wizard, photo upload with compression, publish
+- **Enquiries** — send, receive, accept, decline
+- **Direct messaging** — threaded chat on Firestore snapshots, conversation list
+- **Profile** — edit name and phone, profile picture, change password
+- **Icon set** — 15 drawn icons, no emoji anywhere (`src/components/icons/Icon.tsx`)
+- **Market registry** — `src/data/markets.ts`; opening a new city is a data change
+- **Call signalling** — Firestore-based, WebRTC-ready (`src/services/calls.ts`)
+- **Out-of-app calling** — opens the phone dialler, gated on owner consent
+
+### ⏳ Known gaps — read before promising anything
+
+- **Editing a published listing is impossible.** Only drafts reopen in the
+  wizard. Routing published listings there is NOT a one-line fix: the wizard's
+  exit dialog calls `discardDraft`, which deletes the document and every photo.
+- **In-app voice is half-built.** Signalling is done; `react-native-webrtc`, a
+  call screen, a native rebuild and a TURN relay are not. Without TURN, a
+  large share of Nigerian mobile-to-mobile calls connect to silence.
+- **Live tour** is a "coming soon" banner only.
+- **No push notifications.** Messaging works but nobody is told a message arrived.
+- **No BVN/NIN verification, no Paystack.** Both need credentials.
+- **Listing review was removed.** Publishing goes straight to `active` because
+  the admin panel in MASTER_PRD does not exist. `pending` remains in the model.
+
+### ⏳ Future scope
+
+Paystack escrow, Dojah verification, lease generation, ratings, analytics. All
+scoped in the MASTER_PRD and FEATURE_SPEC documents.
 
 ---
 
@@ -129,8 +151,13 @@ Paystack escrow, Dojah BVN/NIN verification, listing creation for landlords, in-
 - **ANDROID_HOME:** Set to the SDK path above
 - **adb:** On PATH via `%LOCALAPPDATA%\Android\Sdk\platform-tools`
 - **Claude Code:** Native Windows installer at `C:\Users\Ololade Olaniran\.local\bin\claude.exe`
-- **Test device:** Samsung Android phone (USB debugging enabled)
-- **Firebase project:** NOT YET CREATED (Step 1 of Prompt 2)
+- **Test device:** Samsung SM-A4260, 720x1600 (USB debugging enabled)
+- **Firebase project:** `directrent-prod` — Firestore and Storage both enabled
+- **Rules:** `firestore.rules` and `storage.rules` live in the repo root and are
+  published. They are NOT deployed by any tooling — publishing means pasting
+  them into the console by hand, so a change here is not live until someone does.
+- **Git remote:** `https://github.com/ragusateam2025-tech/DIRECTRENT.NG-APP`
+- **Tests:** `npm test` — Jest, in `__tests__/` at the repo root (not in `src/`)
 
 ---
 
@@ -179,6 +206,13 @@ Listed so we don't relearn the same lessons:
 7. **Module resolution error: "Unable to resolve module ../../App from node_modules/expo/AppEntry.js"** → caused by missing `index.js` or wrong `main` field in `package.json`. The fresh-start scaffold from Prompt 1 avoids this entirely.
 8. **Using `\u20A6` instead of literal `₦`** → renders incorrectly on some devices. Always literal.
 9. **Preloading large reference docs into every session** → wastes the context window. Read on demand only.
+10. **Gradle on Windows failing with AccessDeniedException or "Unable to delete directory"** → directories under `android/` carry the ReadOnly attribute. On Windows that flag does not block *writing into* a folder but does block *deleting* it, and Gradle deletes these every build. Clear it recursively, do not delete `android/` and rebuild for 47 minutes.
+11. **Trusting Fast Refresh after a Firestore rules change** → a `useEffect` whose dependencies have not changed keeps the OLD listener, so the screen still shows the old failure. Force-stop the app.
+12. **`onSnapshot` with no error callback** → the success path never runs and the screen spins forever, looking like a hang. Every listener takes an error handler.
+13. **Writing `undefined` to Firestore** → rejected outright as "Unsupported field value". Strip undefined keys, or write an explicit `null` when the intent is to clear a field.
+14. **Assuming a document has the fields its TypeScript type promises** → the seeded listings had no `ownerId` at all, which surfaced only when the first write needed it. Firestore does not validate shape; the type is a hope, not a guarantee.
+15. **Verifying only with `tsc` and `npm test`** → every real bug found on 30–31 July lived in code that talks to Firestore, and the tests touch none of it. Run the app on the device before claiming anything works.
+16. **Writing rules with a wildcard glued to text** — `match /{side}Candidates/{id}` → does not parse. A path segment is either a literal or a whole wildcard. Nothing in the repo validates rules; the console is the first checker.
 
 ---
 
@@ -195,18 +229,36 @@ The user is a non-technical founder. They are intelligent and detail-oriented bu
 
 ---
 
-## 11. SUCCESS DEFINITION FOR PROMPT 1 (For Reference)
+## 11. WHERE THINGS STAND
 
-**All passed:**
-- ✅ App icon visible on physical Android device
-- ✅ Dev Client launcher shows "Directrent — Development Build"
-- ✅ Metro bundler connects and loads JS
-- ✅ Hello Directrent screen renders: dark background, "Direct" white + "rent" gold, tagline, "Foundation Ready" coral pill
-- ✅ No red error screens, no font warnings
-- ✅ Folder structure matches Prompt 1 spec
+### Verified on the device
+Browse, filters, listing detail with the photo gallery, saved properties, the
+icon set, the live tour banner, profile editing, and profile picture upload.
 
-**Next gate:** Firebase project created, credentials placed in `google-services.json`, then begin Prompt 2 (Auth flow).
+### Built but never seen working end to end
+**Sending a message.** Enquiry → conversation → chat has never once completed,
+because the six seeded listings are missing `ownerId`. The Message and Call
+buttons hide themselves when it is absent, so the symptom is silent.
+
+### The blocking task
+In the Firebase console, on each of the six documents in `listings`:
+
+| Field | Where | Value |
+|---|---|---|
+| `ownerId` | top level | `demo` |
+| `marketId` | inside `location` | `lagos` |
+| `state` | inside `location` | `Lagos` |
+
+Then force-stop the app. Once `marketId` is on every document, delete the
+legacy fallback in `src/services/listings.ts` — it is marked for removal.
+
+### Recommended next work, in order
+1. **Emulator-backed tests for the Firestore write paths.** Every bug found on
+   30–31 July lived there, and nothing in the suite covers it.
+2. **Editing a published listing** — see the warning in section 5.
+3. **Push notifications** — messaging is weak without them.
+4. **WebRTC native layer** — last, and only after the write paths are trusted.
 
 ---
 
-*Last updated: April 8, 2026 — End of Prompt 1 session, reference docs added*
+*Last updated: July 31, 2026 — messaging, calling, profiles and the market registry built; blocked on the listings backfill*
