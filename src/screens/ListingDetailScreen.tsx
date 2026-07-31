@@ -1,8 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing, radius } from '../theme/tokens';
 import { duration, easing, stagger } from '../theme/motion';
@@ -13,7 +12,8 @@ import { fetchListing } from '../services/listings';
 import { isSaved, toggleSaved } from '../services/saved';
 import { hasApplied } from '../services/applications';
 import { useAuth } from '../context/AuthContext';
-import { primaryImageSource } from '../lib/listingImage';
+import { allImageSources } from '../lib/listingImage';
+import PhotoGallery from '../components/PhotoGallery';
 import AnimatedSaveIcon from '../components/icons/AnimatedSaveIcon';
 import { IconMessages } from '../components/icons/Icon';
 import { ensureConversation } from '../services/messages';
@@ -134,23 +134,12 @@ export default function ListingDetailScreen({ route }: Props) {
     );
   }
 
-  const image = primaryImageSource(listing);
+  const photos = allImageSources(listing);
 
   return (
     <ScrollView style={styles.wrapper} contentContainerStyle={styles.content}>
-      <Animated.View entering={FadeIn.duration(duration.quick)} style={styles.heroWrap}>
-        {image ? (
-          <Image source={image} style={styles.image} resizeMode="cover" />
-        ) : (
-          <View style={styles.placeholder}>
-            <Text style={styles.placeholderArea}>{listing.location.area}</Text>
-          </View>
-        )}
-        <LinearGradient
-          colors={['transparent', 'rgba(26,10,10,0.9)']}
-          style={styles.heroScrim}
-          pointerEvents="none"
-        />
+      <Animated.View entering={FadeIn.duration(duration.quick)}>
+        <PhotoGallery photos={photos} fallbackLabel={listing.location.area} />
       </Animated.View>
 
       <Animated.View
@@ -241,26 +230,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontFamily: typography.families.body,
     fontSize: typography.sizes.base,
-  },
-  heroWrap: {
-    width: '100%',
-    height: 240,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-  },
-  heroScrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 90 },
-  image: { width: '100%', height: '100%' },
-  placeholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholderArea: {
-    color: colors.accentGold,
-    fontFamily: typography.families.display,
-    fontSize: typography.sizes['3xl'],
   },
   title: {
     color: colors.textPrimary,

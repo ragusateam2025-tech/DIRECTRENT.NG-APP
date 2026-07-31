@@ -23,3 +23,22 @@ export function primaryImageSource(
   const key = listing.media?.photoKey;
   return key ? PROPERTY_IMAGES[key] : undefined;
 }
+
+/**
+ * Every image for a listing, in order, for the detail gallery.
+ *
+ * The owner upload flow accepts up to ten photos and the detail screen showed
+ * only the first, so nine of them were never seen by anyone. Seeded listings
+ * carry a single stock image and so return an array of one — callers can treat
+ * both sources identically rather than branching on which kind of listing it is.
+ */
+export function allImageSources(
+  listing: Listing | LandlordListing,
+): ImageSourcePropType[] {
+  const uploaded = listing.media?.photos;
+  if (uploaded?.length) return uploaded.map(uri => ({ uri }));
+
+  const key = listing.media?.photoKey;
+  const stock = key ? PROPERTY_IMAGES[key] : undefined;
+  return stock ? [stock] : [];
+}
