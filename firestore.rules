@@ -174,13 +174,24 @@ service cloud.firestore {
       allow delete: if false;
 
       // ICE candidates. Append-only from either side while the call exists.
-      match /{side}Candidates/{candidateId} {
-        function onParentCall() {
-          return request.auth.uid in
-            get(/databases/$(database)/documents/calls/$(callId)).data.participants;
-        }
+      //
+      // Spelled out as two blocks rather than one wildcard. A path segment in
+      // these rules is either a literal or a whole wildcard — `{side}Candidates`
+      // is not valid syntax — and matching `/{any}/{id}` instead would open
+      // every future subcollection of a call to the same permission.
+      match /callerCandidates/{candidateId} {
+        allow read, create: if request.auth != null
+                            && request.auth.uid in
+                               get(/databases/$(database)/documents/calls/$(callId))
+                                 .data.participants;
+        allow update, delete: if false;
+      }
 
-        allow read, create: if request.auth != null && onParentCall();
+      match /calleeCandidates/{candidateId} {
+        allow read, create: if request.auth != null
+                            && request.auth.uid in
+                               get(/databases/$(database)/documents/calls/$(callId))
+                                 .data.participants;
         allow update, delete: if false;
       }
     }
