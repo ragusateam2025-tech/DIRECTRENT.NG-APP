@@ -101,6 +101,8 @@ export interface UserProfile {
   email: string;
   /** Normalised to +234XXXXXXXXXX. Absent until the user adds it. */
   phone?: string;
+  /** Storage download URL for the profile picture. Absent falls back to initials. */
+  photoUrl?: string;
   role: UserRole;
   /** False until the user passes the role-selection screen. */
   roleChosen: boolean;

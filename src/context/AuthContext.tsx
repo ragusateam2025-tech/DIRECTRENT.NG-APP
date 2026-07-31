@@ -5,6 +5,9 @@ import {
   signOut as fbSignOut,
   onAuthStateChanged,
   updateProfile,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
 } from '@react-native-firebase/auth';
 import { doc, getDoc, getDocFromServer, setDoc } from '@react-native-firebase/firestore';
 import { auth, db, COLLECTIONS } from '../lib/firebase';
@@ -19,7 +22,20 @@ interface AuthContextValue {
   logOut: () => Promise<void>;
   setRole: (role: UserRole) => Promise<void>;
   /** Partial edit of the user's own details. Identity fields are not editable. */
-  updateDetails: (changes: { fullName?: string; phone?: string }) => Promise<void>;
+  updateDetails: (changes: {
+    fullName?: string;
+    phone?: string;
+    photoUrl?: string;
+  }) => Promise<void>;
+  /**
+   * Changes the account password.
+   *
+   * Takes the current one because Firebase requires a recent sign-in before it
+   * will accept a password change, and rejects the attempt otherwise. Asking
+   * for it also means a borrowed unlocked phone cannot silently take over the
+   * account.
+   */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -49,6 +65,10 @@ export function friendlyAuthError(code: string): string {
       return 'No internet connection. Check your network and try again.';
     case 'auth/too-many-requests':
       return 'Too many attempts. Wait a moment and try again.';
+    case 'auth/requires-recent-login':
+      return 'For security, log out and back in before changing your password.';
+    case 'auth/missing-password':
+      return 'Enter your current password.';
     case 'app/database-unreachable':
       return 'Account created, but the database rejected it. Check your Firestore security rules.';
     default:
@@ -162,7 +182,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * cannot be read — leaving them out of step would make a rename appear to
    * revert the next time Firestore was unreachable.
    */
-  async function updateDetails(changes: { fullName?: string; phone?: string }) {
+  async function changePassword(currentPassword: string, newPassword: string) {
+    const user = auth.currentUser;
+    if (!user?.email) throw new Error('No signed-in account.');
+
+    // Reauthenticate first. Firebase refuses a password change on a stale
+    // session, and the failure it returns otherwise is opaque to the user.
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+    await reauthenticateWithCredential(user, credential);
+
+    await updatePassword(user, newPassword);
+  }
+
+  async function updateDetails(changes: {
+    fullName?: string;
+    phone?: string;
+    photoUrl?: string;
+  }) {
     if (!profile) return;
 
     const updated: UserProfile = { ...profile, ...changes };
@@ -184,7 +220,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ profile, initialising, signUp, logIn, logOut, setRole, updateDetails }}
+      value={{
+        profile,
+        initialising,
+        signUp,
+        logIn,
+        logOut,
+        setRole,
+        updateDetails,
+        changePassword,
+      }}
     >
       {children}
     </AuthContext.Provider>

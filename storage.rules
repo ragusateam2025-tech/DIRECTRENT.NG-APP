@@ -30,5 +30,24 @@ service firebase.storage {
                    && request.resource.size < 2 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
     }
+
+    // Profile pictures, one per account at avatars/{uid}.jpg.
+    //
+    // Readable by any signed-in user because a conversation shows the other
+    // party's picture, and a tenant cannot read the owner's user document.
+    // Writable only by the account it belongs to, so nobody can replace
+    // someone else's face.
+    match /avatars/{userId} {
+      allow read: if request.auth != null;
+
+      // Tighter than the listing ceiling: an avatar displays at 96px, so
+      // anything approaching a megabyte means compression was skipped.
+      allow write: if request.auth != null
+                   && request.auth.uid + '.jpg' == userId
+                   && request.resource.size < 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+
+      allow delete: if request.auth != null && request.auth.uid + '.jpg' == userId;
+    }
   }
 }
