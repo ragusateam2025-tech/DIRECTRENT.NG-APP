@@ -19,4 +19,5 @@ export const COLLECTIONS = {
   applications: 'applications',
   conversations: 'conversations',
   messages: 'messages',
+  calls: 'calls',
 } as const;

@@ -115,13 +115,72 @@ service cloud.firestore {
 
         allow read: if request.auth != null && inConversation();
 
-        // A message may only be created in the sender's own name, and only by
-        // someone in the conversation.
+        // A text message may only be created in the sender's own name.
+        //
+        // A call record is the exception, and deliberately so: it is
+        // attributed to whoever placed the call, but written by whichever side
+        // ended it — a declined call is recorded by the person who declined.
+        // Requiring senderId to match the writer would make that impossible,
+        // so for `call` messages participation in the conversation is the
+        // check, and the type itself is pinned so this cannot be used to forge
+        // an ordinary message in someone else's name.
         allow create: if request.auth != null
                       && inConversation()
-                      && request.resource.data.senderId == request.auth.uid;
+                      && (
+                        request.resource.data.senderId == request.auth.uid
+                        || (request.resource.data.type == 'call'
+                            && request.resource.data.senderId in
+                               get(/databases/$(database)/documents/conversations/$(conversationId))
+                                 .data.participants)
+                      );
 
         // What was said stands. Neither party edits or removes it afterwards.
+        //
+        // Exception: a call record is written by whichever side ends the call,
+        // which may be the person who did not place it — so a message of type
+        // `call` may be created by either participant, not only its sender.
+        allow update, delete: if false;
+      }
+    }
+
+    // A call and its signalling. Private to the two people on it.
+    //
+    // These documents carry session descriptions and network candidates, which
+    // are only meaningful to the pair negotiating — but they also reveal who
+    // called whom and when, so they are read-restricted for the same reason
+    // the conversation is.
+    match /calls/{callId} {
+      function onCall() {
+        return request.auth != null && request.auth.uid in resource.data.participants;
+      }
+
+      allow read: if onCall();
+
+      // A call may only be placed in the caller's own name, and must name two
+      // people — one of them the caller.
+      allow create: if request.auth != null
+                    && request.resource.data.callerId == request.auth.uid
+                    && request.auth.uid in request.resource.data.participants
+                    && request.resource.data.participants.size() == 2;
+
+      // Either side updates it as the call progresses: the caller attaches an
+      // offer, the callee an answer, and whoever hangs up sets the outcome.
+      // Who is on the call cannot change.
+      allow update: if onCall()
+                    && request.resource.data.participants == resource.data.participants
+                    && request.resource.data.callerId == resource.data.callerId;
+
+      // A call is a record for both sides, like the messages around it.
+      allow delete: if false;
+
+      // ICE candidates. Append-only from either side while the call exists.
+      match /{side}Candidates/{candidateId} {
+        function onParentCall() {
+          return request.auth.uid in
+            get(/databases/$(database)/documents/calls/$(callId)).data.participants;
+        }
+
+        allow read, create: if request.auth != null && onParentCall();
         allow update, delete: if false;
       }
     }

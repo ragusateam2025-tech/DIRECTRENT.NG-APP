@@ -12,7 +12,14 @@ import {
   where,
 } from '@react-native-firebase/firestore';
 import { db, COLLECTIONS } from '../lib/firebase';
-import type { Application, Conversation, Listing, Message, UserProfile } from '../types';
+import type {
+  Application,
+  CallOutcome,
+  Conversation,
+  Listing,
+  Message,
+  UserProfile,
+} from '../types';
 
 /**
  * One thread per tenant per property.
@@ -158,6 +165,70 @@ export function subscribeToConversations(
     },
     error => onError?.(error),
   );
+}
+
+/**
+ * Writes a call into the thread once it ends.
+ *
+ * Attributed to the caller regardless of who hung up, because the thread is a
+ * record of who reached out — an owner should see that a tenant tried to call
+ * them, not that they themselves declined.
+ *
+ * The unread count only moves for a call the recipient did not take. A
+ * completed call needs no badge: both people were there for it.
+ */
+export async function postCallMessage(
+  conversationId: string,
+  callerId: string,
+  outcome: CallOutcome,
+  seconds: number | undefined,
+  actorId: string,
+): Promise<void> {
+  const text = callSummary(outcome, seconds);
+  const now = Date.now();
+
+  await addDoc(messagesRef(conversationId), {
+    conversationId,
+    senderId: callerId,
+    type: 'call',
+    text,
+    call: seconds === undefined ? { outcome } : { outcome, seconds },
+    createdAt: now,
+  });
+
+  const update: Record<string, unknown> = {
+    lastMessage: text,
+    lastMessageAt: now,
+    lastSenderId: callerId,
+  };
+
+  if (outcome === 'missed' || outcome === 'unanswered') {
+    // The person who did not pick up is the one who needs telling.
+    const conversation = await fetchConversation(conversationId);
+    if (conversation) {
+      const missedBy =
+        callerId === conversation.landlordId ? conversation.tenantId : conversation.landlordId;
+      update[`unread.${missedBy}`] = increment(1);
+    }
+  }
+
+  await updateDoc(doc(db, COLLECTIONS.conversations, conversationId), update);
+}
+
+/** The line that appears in the thread. Plain language, no jargon. */
+function callSummary(outcome: CallOutcome, seconds?: number): string {
+  switch (outcome) {
+    case 'completed':
+      return seconds && seconds >= 60
+        ? `Call · ${Math.round(seconds / 60)} min`
+        : `Call · ${seconds ?? 0} sec`;
+    case 'declined':
+      return 'Call declined';
+    case 'missed':
+    case 'unanswered':
+    default:
+      return 'Missed call';
+  }
 }
 
 /** Clears this user's unread count. Called when they open the thread. */

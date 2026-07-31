@@ -75,15 +75,68 @@ export interface Conversation {
  * schedule_viewing, payment_request and location types; the field is kept so
  * those can be added without a migration.
  */
-export type MessageType = 'text';
+export type MessageType = 'text' | 'call';
+
+/**
+ * How a call ended, as recorded in the thread.
+ *
+ * `missed` and `declined` are kept apart deliberately. A tenant who sees
+ * "missed" tries again; one who sees they were declined does not, and
+ * collapsing the two would quietly mislead whichever side was wrong.
+ */
+export type CallOutcome = 'missed' | 'declined' | 'completed' | 'unanswered';
 
 export interface Message {
   id: string;
   conversationId: string;
   senderId: string;
   type: MessageType;
+  /** Human-readable line, used for the conversation list preview either way. */
   text: string;
+  /** Present on `call` messages only. */
+  call?: {
+    outcome: CallOutcome;
+    /** Whole seconds, on a completed call. */
+    seconds?: number;
+  };
   createdAt: number;
+}
+
+/**
+ * Call lifecycle.
+ *
+ * `ringing`   — offer written, waiting for the other side.
+ * `connected` — answered, audio flowing.
+ * `ended`     — finished normally, by either party.
+ * `declined`  — the callee actively refused.
+ * `missed`    — nobody answered before the timeout.
+ */
+export type CallStatus = 'ringing' | 'connected' | 'ended' | 'declined' | 'missed';
+
+/**
+ * One call attempt, and the signalling that sets it up.
+ *
+ * WebRTC carries the audio but cannot start the conversation: the two phones
+ * must first exchange session descriptions and network candidates. Firestore
+ * already sits between these two users, so it does that job — no extra
+ * service, and the rules that protect the thread protect the call with it.
+ */
+export interface Call {
+  id: string;
+  conversationId: string;
+  callerId: string;
+  calleeId: string;
+  /** Both uids, so one array-contains query finds a user's incoming calls. */
+  participants: string[];
+  callerName: string;
+  status: CallStatus;
+  /** SDP offer from the caller, written when the call is placed. */
+  offer?: { type: string; sdp: string };
+  /** SDP answer from the callee, written when they accept. */
+  answer?: { type: string; sdp: string };
+  createdAt: number;
+  connectedAt?: number;
+  endedAt?: number;
 }
 
 export type PropertyType =
