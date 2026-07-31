@@ -37,7 +37,7 @@ export function newListingId(): string {
 }
 
 /**
- * Every listing belonging to this landlord, drafts included.
+ * Every listing belonging to this owner, drafts included.
  *
  * Returns LandlordListing rather than Listing: a draft genuinely lacks most
  * fields, and casting it to Listing would tell the type system a lie it cannot
@@ -139,7 +139,7 @@ export interface PublishResult {
  * Submits a draft for review.
  *
  * Publishing — not saving — is what enforces the photo minimum, so a draft may
- * legitimately hold fewer while the landlord is still working.
+ * legitimately hold fewer while the owner is still working.
  */
 export async function publishListing(
   listingId: string,
@@ -162,8 +162,16 @@ export async function publishListing(
     return { ok: false, reason: 'Set an annual rent.' };
   }
 
+  // Goes straight live.
+  //
+  // MASTER_PRD.md puts a review step here, moderated from an admin panel that
+  // is a separate application and does not exist yet. Publishing to `pending`
+  // meanwhile meant no property a real owner listed was ever visible to a
+  // tenant — the marketplace had no closing move. `pending` stays in the model
+  // so review can be reinstated by changing this one line once there is
+  // somewhere to moderate from.
   await updateDoc(doc(db, COLLECTIONS.listings, listingId), {
-    'status.listing': 'pending' as ListingStatus,
+    'status.listing': 'active' as ListingStatus,
   });
 
   return { ok: true };

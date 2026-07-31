@@ -61,7 +61,7 @@ export default function ApplyScreen() {
     }
     if (message.trim().length < 20) {
       setError(
-        `Write a short note to the landlord — at least 20 characters. You have ${message.trim().length}.`,
+        `Write a short note to the property owner — at least 20 characters. You have ${message.trim().length}.`,
       );
       return;
     }
@@ -77,7 +77,7 @@ export default function ApplyScreen() {
       });
       Alert.alert(
         'Enquiry sent',
-        'The landlord has your details and will reply through Directrent. You can track this under Enquiries.',
+        'The property owner has your details and will reply through Directrent. You can track this under Enquiries.',
         [{ text: 'Done', onPress: () => navigation.goBack() }],
       );
     } catch (err: any) {
@@ -150,7 +150,7 @@ export default function ApplyScreen() {
         />
 
         <TextField
-          label="A note to the landlord"
+          label="A note to the property owner"
           value={message}
           onChangeText={setMessage}
           placeholder="Tell them a little about yourself and when you would like to view the property."
@@ -159,7 +159,7 @@ export default function ApplyScreen() {
         />
 
         <Text style={styles.privacy}>
-          The landlord will see your name and email so they can reply. Nobody else
+          The property owner will see your name and email so they can reply. Nobody else
           can see this enquiry.
         </Text>
 

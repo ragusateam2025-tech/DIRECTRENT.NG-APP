@@ -48,7 +48,7 @@ export function resizeTarget(
  * Resizes and compresses a picked photo before upload.
  *
  * Lagos mobile data is the constraint this exists for: an uncompressed camera
- * frame is 6–8 MB, and five of them is a landlord abandoning the form. After
+ * frame is 6–8 MB, and five of them is an owner abandoning the form. After
  * this a photo is typically around 300 KB.
  */
 export async function compressPhoto(

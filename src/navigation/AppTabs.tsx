@@ -69,7 +69,7 @@ function BrowseStack() {
         component={ApplyScreen}
         options={{ title: 'Enquire' }}
       />
-      {/* Also here, not only in the Messages tab: messaging a landlord starts
+      {/* Also here, not only in the Messages tab: messaging an owner starts
           from the property, and bouncing the user to another tab mid-thought
           would lose their place in the listing. */}
       <Stack.Screen name="Chat" component={ChatScreen} options={{ title: 'Conversation' }} />
@@ -113,7 +113,7 @@ function LandlordFlow() {
         options={{ title: 'Property' }}
       />
       {/* Reachable because a "both" account can view a listing from either
-          stack; a landlord viewing their own property simply never taps it. */}
+          stack; an owner viewing their own property simply never taps it. */}
       <LandlordStack.Screen
         name="Apply"
         component={ApplyScreen}
@@ -165,7 +165,7 @@ export default function AppTabs() {
   const { profile } = useAuth();
 
   // Tabs follow the chosen role. A tenant has no reason to see My Properties,
-  // and a landlord-only account has no reason to see Saved.
+  // and an owner-only account has no reason to see Saved.
   const isTenant = profile?.role === 'tenant' || profile?.role === 'both';
   const isLandlord = profile?.role === 'landlord' || profile?.role === 'both';
 

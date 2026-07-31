@@ -15,8 +15,10 @@ import type { UserRole } from '../types';
 
 const ROLE_LABELS: Record<UserRole, string> = {
   tenant: 'Tenant',
-  landlord: 'Landlord',
-  both: 'Tenant & Landlord',
+  // Keys are the stored role values and must not change — they are written
+  // into every user document. Only the labels people read are updated.
+  landlord: 'Property owner',
+  both: 'Tenant & property owner',
 };
 
 export default function ProfileScreen() {

@@ -40,7 +40,7 @@ export default function EnquiriesScreen() {
   const isLandlord = profile?.role === 'landlord' || profile?.role === 'both';
   const isTenant = profile?.role === 'tenant' || profile?.role === 'both';
 
-  // A landlord-only account has nothing in "sent", so open on what they have.
+  // An owner-only account has nothing in "sent", so open on what they have.
   React.useEffect(() => {
     if (!isTenant && isLandlord) setTab('received');
   }, [isTenant, isLandlord]);
@@ -48,7 +48,7 @@ export default function EnquiriesScreen() {
   /**
    * Opens the thread for an enquiry.
    *
-   * The landlord's name is only knowable when the landlord is the one tapping;
+   * The owner's name is only knowable when the owner is the one tapping;
    * a tenant opening from here falls back until the thread already exists, at
    * which point the stored name is used.
    */
@@ -57,7 +57,7 @@ export default function EnquiriesScreen() {
     try {
       const conversation = await ensureConversationFromApplication(
         application,
-        profile.uid === application.landlordId ? profile.fullName : 'The landlord',
+        profile.uid === application.landlordId ? profile.fullName : 'The property owner',
       );
       navigation.navigate('Messages', {
         screen: 'Chat',
@@ -136,7 +136,7 @@ export default function EnquiriesScreen() {
             <EmptyState
               variant="empty"
               title="No enquiries yet"
-              body="When you enquire about a property, it appears here with the landlord's reply."
+              body="When you enquire about a property, it appears here with the property owner's reply."
             />
           ) : (
             <EmptyState
@@ -236,13 +236,13 @@ function ApplicationRow({
         onPress={() => onMessage(application)}
         accessibilityRole="button"
         accessibilityLabel={
-          asLandlord ? `Message ${application.tenantName}` : 'Message the landlord'
+          asLandlord ? `Message ${application.tenantName}` : 'Message the property owner'
         }
         style={({ pressed }) => [styles.messageAction, pressed && styles.messageActionPressed]}
       >
         <IconMessages size={15} color={colors.accentGold} />
         <Text style={styles.messageActionText}>
-          {asLandlord ? `Message ${application.tenantName.split(' ')[0]}` : 'Message the landlord'}
+          {asLandlord ? `Message ${application.tenantName.split(' ')[0]}` : 'Message the property owner'}
         </Text>
       </Pressable>
 
@@ -267,7 +267,7 @@ function ApplicationRow({
 
       {!asLandlord && application.status === 'accepted' && (
         <Text style={styles.accepted}>
-          The landlord accepted your enquiry. They will be in touch at{' '}
+          The property owner accepted your enquiry. They will be in touch at{' '}
           {application.tenantEmail}.
         </Text>
       )}

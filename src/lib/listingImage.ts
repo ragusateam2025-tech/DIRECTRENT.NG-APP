@@ -5,7 +5,7 @@ import type { Listing, LandlordListing } from '../types';
 /**
  * Resolves a listing's primary image.
  *
- * Two sources exist during the pilot: landlord-uploaded photos stored in
+ * Two sources exist during the pilot: owner-uploaded photos stored in
  * Firebase Storage, and the bundled stock images on the seeded demo listings.
  * Uploaded photos win — a real listing should never fall back to stock.
  *

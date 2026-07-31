@@ -69,7 +69,7 @@ export default function AddPropertyScreen() {
     try {
       await saveDraft(listingId.current, profile.uid, profile.fullName, merged);
     } catch {
-      // A failed autosave must not block the landlord mid-form. The next step
+      // A failed autosave must not block the owner mid-form. The next step
       // writes the whole draft again, so one lost save is recoverable.
     }
   }
@@ -188,7 +188,7 @@ export default function AddPropertyScreen() {
 /**
  * Which step a resumed draft should open on.
  *
- * Returns the first step whose requirement is unmet, so the landlord lands on
+ * Returns the first step whose requirement is unmet, so the owner lands on
  * the thing that still needs doing rather than re-reading what they finished.
  */
 export function furthestCompletedStep(draft: DraftListing): number {

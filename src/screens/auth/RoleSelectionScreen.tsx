@@ -10,7 +10,7 @@ const OPTIONS: Array<{ role: UserRole; title: string; body: string }> = [
   {
     role: 'tenant',
     title: "I'm looking for a place",
-    body: 'Browse verified listings and rent directly from landlords.',
+    body: 'Browse verified listings and rent directly from property owners.',
   },
   {
     role: 'landlord',

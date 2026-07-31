@@ -30,7 +30,7 @@ export default function PhotosStep({
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
 
-  /** Offers the two ways a landlord actually has photos: already taken, or about to take. */
+  /** Offers the two ways an owner actually has photos: already taken, or about to take. */
   function addPhotos() {
     Alert.alert('Add photos', undefined, [
       { text: 'Take a photo', onPress: () => pickAndUpload('camera') },

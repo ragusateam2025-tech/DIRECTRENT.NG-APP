@@ -28,7 +28,7 @@ const STATUS_COLOUR: Record<ListingStatus, string> = {
   rented: colors.textSecondary,
 };
 
-/** Drafts first — they are the ones needing the landlord's attention. */
+/** Drafts first — they are the ones needing the owner's attention. */
 const STATUS_ORDER: Record<ListingStatus, number> = {
   draft: 0,
   pending: 1,

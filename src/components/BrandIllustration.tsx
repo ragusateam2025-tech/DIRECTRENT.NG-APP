@@ -5,7 +5,7 @@ import { colors } from '../theme/tokens';
 /**
  * The direct line — Directrent's signature mark.
  *
- * Two points, one unbroken run between them: a tenant and a landlord with
+ * Two points, one unbroken run between them: a tenant and an owner with
  * nothing in the middle. It is the company's whole argument reduced to a shape,
  * which is why it earns the empty states rather than a stock illustration.
  *

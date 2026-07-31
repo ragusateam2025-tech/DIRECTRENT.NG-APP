@@ -26,7 +26,7 @@ export const PROPERTY_IMAGES: Record<string, number | undefined> = {
 export const SEED_LISTINGS: Listing[] = [
   {
     id: 'yaba-selfcon-01',
-    // Seeded demo data has no real landlord. Retired once pilot landlords publish.
+    // Seeded demo data has no real owner. Retired once pilot owners publish.
     ownerId: 'demo',
     basicInfo: {
       title: 'Bright self-contained near Yaba College',
@@ -48,7 +48,7 @@ export const SEED_LISTINGS: Listing[] = [
   },
   {
     id: 'yaba-minif-02',
-    // Seeded demo data has no real landlord. Retired once pilot landlords publish.
+    // Seeded demo data has no real owner. Retired once pilot owners publish.
     ownerId: 'demo',
     basicInfo: {
       title: 'Mini flat with balcony, Sabo Yaba',
@@ -70,7 +70,7 @@ export const SEED_LISTINGS: Listing[] = [
   },
   {
     id: 'surulere-1bed-03',
-    // Seeded demo data has no real landlord. Retired once pilot landlords publish.
+    // Seeded demo data has no real owner. Retired once pilot owners publish.
     ownerId: 'demo',
     basicInfo: {
       title: 'One bedroom apartment off Adeniran Ogunsanya',
@@ -92,7 +92,7 @@ export const SEED_LISTINGS: Listing[] = [
   },
   {
     id: 'surulere-2bed-04',
-    // Seeded demo data has no real landlord. Retired once pilot landlords publish.
+    // Seeded demo data has no real owner. Retired once pilot owners publish.
     ownerId: 'demo',
     basicInfo: {
       title: 'Two bedroom flat, quiet Surulere street',
@@ -114,7 +114,7 @@ export const SEED_LISTINGS: Listing[] = [
   },
   {
     id: 'yaba-2bed-05',
-    // Seeded demo data has no real landlord. Retired once pilot landlords publish.
+    // Seeded demo data has no real owner. Retired once pilot owners publish.
     ownerId: 'demo',
     basicInfo: {
       title: 'Two bedroom, newly built, Herbert Macaulay',
@@ -136,7 +136,7 @@ export const SEED_LISTINGS: Listing[] = [
   },
   {
     id: 'surulere-3bed-06',
-    // Seeded demo data has no real landlord. Retired once pilot landlords publish.
+    // Seeded demo data has no real owner. Retired once pilot owners publish.
     ownerId: 'demo',
     basicInfo: {
       title: 'Three bedroom family flat, Bode Thomas',

@@ -1,6 +1,6 @@
 // Listing shape is a trimmed subset of CreateListingRequest in
 // MASTER_PRD_PART2.md §2.1.3 — same field names and nesting, fewer fields,
-// so the full landlord listing flow can extend this without renaming anything.
+// so the full owner listing flow can extend this without renaming anything.
 
 export type UserRole = 'tenant' | 'landlord' | 'both';
 
@@ -21,7 +21,7 @@ export type ApplicationStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn
 export interface Application {
   id: string;
   listingId: string;
-  /** The landlord who owns the listing, so they can query applications addressed to them. */
+  /** The uid of the property owner, so they can query applications addressed to them. */
   landlordId: string;
   tenantId: string;
   tenantName: string;
@@ -39,7 +39,7 @@ export interface Application {
 }
 
 /**
- * A conversation between one tenant and one landlord about one property.
+ * A conversation between one tenant and one owner about one property.
  *
  * Shape follows Conversation in FEATURE_SPEC_PART3.md §8.1.1, trimmed to what
  * a text thread needs. Denormalises the property title and the other party's
@@ -110,7 +110,7 @@ export interface UserProfile {
 /**
  * Listing lifecycle.
  *
- * `draft`   — the landlord is still filling in the wizard. Visible only to them.
+ * `draft`   — the owner is still filling in the wizard. Visible only to them.
  * `pending` — submitted, awaiting review. Still invisible to tenants.
  * `active`  — approved and browsable.
  * `rented`  — no longer available.
@@ -118,7 +118,7 @@ export interface UserProfile {
 export type ListingStatus = 'draft' | 'pending' | 'active' | 'rented';
 
 /**
- * A listing as it exists in a landlord's own list, which includes drafts.
+ * A listing as it exists in an owner's own list, which includes drafts.
  *
  * `Listing` models a *published* listing, where every field is present. A draft
  * is built up step by step, so until the wizard finishes most of it is missing —
@@ -136,14 +136,14 @@ export type LandlordListing = Partial<Omit<Listing, 'id' | 'ownerId' | 'status'>
 export interface Listing {
   id: string;
   /**
-   * uid of the landlord who owns this listing. Every Firestore and Storage
+   * uid of the property owner. Every Firestore and Storage
    * rule keys off this — see firestore.rules. Immutable after creation.
    */
   ownerId: string;
   /**
-   * The landlord's display name, copied at creation.
+   * The owner's display name, copied at creation.
    *
-   * Denormalised because a tenant cannot read the landlord's user document —
+   * Denormalised because a tenant cannot read the owner's user document —
    * firestore.rules restricts /users/{uid} to that user alone — so this is the
    * only way a conversation can be labelled with a human name. Absent on the
    * seeded demo listings, which predate it.
@@ -169,7 +169,7 @@ export interface Listing {
     photoKey?: string;
     /**
      * Firebase Storage download URLs, first is primary. Populated by the
-     * landlord upload flow; absent on the seeded demo listings.
+     * owner upload flow; absent on the seeded demo listings.
      */
     photos?: string[];
   };

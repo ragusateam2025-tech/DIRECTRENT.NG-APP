@@ -57,7 +57,7 @@ export function IconBrowse({ size = 24, color = colors.textSecondary, filled }: 
 }
 
 /**
- * Listings — stacked plates, the landlord's portfolio.
+ * Listings — stacked plates, the owner's portfolio.
  *
  * Reads as "several properties" without repeating the doorway at a smaller size,
  * which would be illegible in a tab bar.
@@ -105,7 +105,7 @@ export function IconSaved({ size = 24, color = colors.textSecondary, filled }: I
  * Enquiries — the direct line.
  *
  * Two points with one unbroken run between them: the brand's whole argument
- * reduced to a mark. Tenant here, landlord there, nothing in the middle.
+ * reduced to a mark. Tenant here, owner there, nothing in the middle.
  */
 export function IconEnquiries({ size = 24, color = colors.textSecondary, filled }: IconProps) {
   return (

@@ -29,7 +29,7 @@ export default function WelcomeScreen({ navigation }: Props) {
         <Text style={styles.body}>
           The Agent Effect costs Lagos renters hundreds of thousands of naira in
           fees that buy them nothing. We connect you straight to verified
-          landlords — no middleman, no inflated charges.
+          property owners — no middleman, no inflated charges.
         </Text>
 
         <Text style={styles.research}>

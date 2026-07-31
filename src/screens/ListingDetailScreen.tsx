@@ -21,7 +21,7 @@ import type { Listing } from '../types';
 
 /**
  * Typed structurally rather than against one stack, because this screen is
- * reached from both the tenant Browse stack and the landlord Listings stack.
+ * reached from both the tenant Browse stack and the owner Listings stack.
  * All it needs is the listing id.
  */
 interface Props {
@@ -80,7 +80,7 @@ export default function ListingDetailScreen({ route }: Props) {
   /**
    * Opens the thread for this property, creating it on first contact.
    *
-   * A landlord viewing their own listing has nobody to message, so the button
+   * An owner viewing their own listing has nobody to message, so the button
    * is hidden for them rather than opening a conversation with themselves.
    */
   async function handleMessageLandlord() {
@@ -90,7 +90,7 @@ export default function ListingDetailScreen({ route }: Props) {
       const conversation = await ensureConversation(
         listing,
         profile,
-        listing.ownerName ?? 'The landlord',
+        listing.ownerName ?? 'The property owner',
       );
       navigation.navigate('Chat', { conversationId: conversation.id });
     } catch {
@@ -199,7 +199,7 @@ export default function ListingDetailScreen({ route }: Props) {
           <>
             <View style={styles.actionSpacer} />
             <Button
-              label="Message the landlord"
+              label="Message the property owner"
               variant="secondary"
               loading={messaging}
               icon={<IconMessages size={18} color={colors.accentGold} />}

@@ -18,8 +18,8 @@ import type { Application, Conversation, Listing, Message, UserProfile } from '.
  * One thread per tenant per property.
  *
  * Composite id rather than a generated one, same reasoning as applicationId:
- * a tenant tapping "Message landlord" twice on a slow connection should reopen
- * the thread they already have, not start a second one the landlord then sees
+ * a tenant tapping "Message owner" twice on a slow connection should reopen
+ * the thread they already have, not start a second one the owner then sees
  * as two separate people.
  */
 export function conversationId(listingId: string, tenantId: string): string {

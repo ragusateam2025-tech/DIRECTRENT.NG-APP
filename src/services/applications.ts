@@ -48,7 +48,7 @@ export interface ApplicationDraft {
  * One application per tenant per listing.
  *
  * Using a composite ID rather than a generated one makes re-applying overwrite
- * instead of creating duplicates, which is what a landlord would otherwise see
+ * instead of creating duplicates, which is what an owner would otherwise see
  * if a tenant tapped Apply twice on a slow connection.
  */
 export function applicationId(listingId: string, tenantId: string): string {
@@ -92,7 +92,7 @@ export async function fetchMyApplications(tenantId: string): Promise<Application
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
-/** Applications received on this landlord's properties, newest first. */
+/** Applications received on this owner's properties, newest first. */
 export async function fetchReceivedApplications(landlordId: string): Promise<Application[]> {
   const q = query(
     collection(db, COLLECTIONS.applications),

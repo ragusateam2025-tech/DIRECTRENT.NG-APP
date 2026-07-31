@@ -82,7 +82,7 @@ export default function PricingStep({
         placeholder="0"
       />
 
-      {/* Shows the landlord exactly what a tenant will see on their listing. */}
+      {/* Shows the owner exactly what a tenant will see on their listing. */}
       {rentValid && (
         <>
           <Text style={styles.previewLabel}>What tenants will see</Text>

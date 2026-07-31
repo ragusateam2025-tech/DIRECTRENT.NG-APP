@@ -22,7 +22,7 @@ export default function MessagesScreen() {
       return;
     }
 
-    // Live rather than fetch-on-focus: a landlord sitting on this screen should
+    // Live rather than fetch-on-focus: an owner sitting on this screen should
     // see a tenant's message land without pulling to refresh.
     const unsubscribe = subscribeToConversations(profile.uid, next => {
       setConversations(next);
@@ -52,7 +52,7 @@ export default function MessagesScreen() {
           <EmptyState
             variant="empty"
             title="No conversations yet"
-            body="Message a landlord from any property and the conversation appears here."
+            body="Message a property owner from any listing and the conversation appears here."
           />
         }
         renderItem={({ item, index }) => {
