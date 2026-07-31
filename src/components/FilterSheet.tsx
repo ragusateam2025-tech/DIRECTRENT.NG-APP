@@ -5,7 +5,7 @@ import { colors, typography, spacing, radius } from '../theme/tokens';
 import Button from './Button';
 import {
   EMPTY_FILTERS,
-  PRICE_BANDS,
+  priceBands,
   SORT_LABELS,
   hasActiveFilters,
   applyFilters,
@@ -113,7 +113,7 @@ export default function FilterSheet({
 
             <Text style={styles.label}>Annual rent</Text>
             <View style={styles.chips}>
-              {PRICE_BANDS.map(band => (
+              {priceBands().map(band => (
                 <Option
                   key={band.value}
                   label={band.label}

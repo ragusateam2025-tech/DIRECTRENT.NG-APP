@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, typography, spacing } from '../../../theme/tokens';
+import { defaultMarket } from '../../../data/markets';
 import TextField from '../../../components/TextField';
 import Button from '../../../components/Button';
 import { Chip } from './BasicInfoStep';
@@ -33,7 +34,19 @@ export default function LocationStep({
     }
     const match = AREAS.find(a => a.area === area) ?? AREAS[0];
     setError('');
-    onNext({ location: { address: address.trim(), area: match.area, lga: match.lga } });
+    // The market must be stamped here. Browse queries on it, so a listing saved
+    // without one is invisible to every tenant.
+    const market = defaultMarket();
+
+    onNext({
+      location: {
+        address: address.trim(),
+        area: match.area,
+        lga: match.lga,
+        marketId: market.id,
+        state: market.state,
+      },
+    });
   }
 
   return (

@@ -26,7 +26,7 @@ export default function SearchBar({
         <TextInput
           value={value}
           onChangeText={onChangeText}
-          placeholder="Search Yaba, Surulere, or a street"
+          placeholder="Search an area or a street"
           placeholderTextColor={colors.textMuted}
           autoCapitalize="none"
           autoCorrect={false}

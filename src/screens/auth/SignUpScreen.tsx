@@ -52,7 +52,7 @@ export default function SignUpScreen({ navigation }: Props) {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={styles.title}>Create your account</Text>
-          <Text style={styles.subtitle}>Start renting directly in Lagos.</Text>
+          <Text style={styles.subtitle}>Start renting directly.</Text>
 
           <TextField
             label="Full name"

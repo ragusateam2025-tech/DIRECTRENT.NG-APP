@@ -35,7 +35,7 @@ export const SEED_LISTINGS: Listing[] = [
       bathrooms: 1,
       furnishing: 'unfurnished',
     },
-    location: { address: '12 Alagomeji Street, Yaba', area: 'Yaba', lga: 'Lagos Mainland' },
+    location: { address: '12 Alagomeji Street, Yaba', area: 'Yaba', lga: 'Lagos Mainland', marketId: 'lagos', state: 'Lagos' },
     media: { photoKey: 'property-1' },
     pricing: { annualRent: 450000, cautionDepositMonths: 6, serviceCharge: 25000 },
     details: {
@@ -57,7 +57,7 @@ export const SEED_LISTINGS: Listing[] = [
       bathrooms: 1,
       furnishing: 'semi_furnished',
     },
-    location: { address: '5 Akinwunmi Street, Sabo, Yaba', area: 'Yaba', lga: 'Lagos Mainland' },
+    location: { address: '5 Akinwunmi Street, Sabo, Yaba', area: 'Yaba', lga: 'Lagos Mainland', marketId: 'lagos', state: 'Lagos' },
     media: { photoKey: 'property-2' },
     pricing: { annualRent: 750000, cautionDepositMonths: 12, serviceCharge: 40000 },
     details: {
@@ -79,7 +79,7 @@ export const SEED_LISTINGS: Listing[] = [
       bathrooms: 1,
       furnishing: 'unfurnished',
     },
-    location: { address: '28 Ogunlana Drive, Surulere', area: 'Surulere', lga: 'Surulere' },
+    location: { address: '28 Ogunlana Drive, Surulere', area: 'Surulere', lga: 'Surulere', marketId: 'lagos', state: 'Lagos' },
     media: { photoKey: 'property-3' },
     pricing: { annualRent: 900000, cautionDepositMonths: 12, serviceCharge: 50000 },
     details: {
@@ -101,7 +101,7 @@ export const SEED_LISTINGS: Listing[] = [
       bathrooms: 2,
       furnishing: 'unfurnished',
     },
-    location: { address: '14 Shitta Street, Surulere', area: 'Surulere', lga: 'Surulere' },
+    location: { address: '14 Shitta Street, Surulere', area: 'Surulere', lga: 'Surulere', marketId: 'lagos', state: 'Lagos' },
     media: { photoKey: 'property-4' },
     pricing: { annualRent: 1000000, cautionDepositMonths: 12, serviceCharge: 60000 },
     details: {
@@ -123,7 +123,7 @@ export const SEED_LISTINGS: Listing[] = [
       bathrooms: 2,
       furnishing: 'semi_furnished',
     },
-    location: { address: '90 Herbert Macaulay Way, Yaba', area: 'Yaba', lga: 'Lagos Mainland' },
+    location: { address: '90 Herbert Macaulay Way, Yaba', area: 'Yaba', lga: 'Lagos Mainland', marketId: 'lagos', state: 'Lagos' },
     media: { photoKey: 'property-5' },
     pricing: { annualRent: 1400000, cautionDepositMonths: 12, serviceCharge: 80000 },
     details: {
@@ -145,7 +145,7 @@ export const SEED_LISTINGS: Listing[] = [
       bathrooms: 3,
       furnishing: 'unfurnished',
     },
-    location: { address: '7 Bode Thomas Street, Surulere', area: 'Surulere', lga: 'Surulere' },
+    location: { address: '7 Bode Thomas Street, Surulere', area: 'Surulere', lga: 'Surulere', marketId: 'lagos', state: 'Lagos' },
     media: { photoKey: 'property-6' },
     pricing: { annualRent: 1800000, cautionDepositMonths: 12, serviceCharge: 100000 },
     details: {

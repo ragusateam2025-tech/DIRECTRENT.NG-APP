@@ -158,8 +158,23 @@ export interface Listing {
   };
   location: {
     address: string;
+    /** Neighbourhood, e.g. Yaba. Only unique within a state. */
     area: string;
+    /** Local Government Area. */
     lga: string;
+    /**
+     * Market key from src/data/markets.ts, e.g. 'lagos'.
+     *
+     * This is what Browse filters on server-side. Without it every query would
+     * have to fetch the whole country and narrow on the device, which is fine
+     * at demo scale and ruinous at national scale.
+     *
+     * Optional only because listings created before this field existed do not
+     * have it; readers should treat a missing value as the default market.
+     */
+    marketId?: string;
+    /** Nigerian state, denormalised for display and coarse filtering. */
+    state?: string;
   };
   media: {
     /**

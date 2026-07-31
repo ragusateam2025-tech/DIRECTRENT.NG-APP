@@ -5,7 +5,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { colors, spacing } from '../theme/tokens';
 import PropertyCard from '../components/PropertyCard';
 import EmptyState from '../components/EmptyState';
-import { fetchListings } from '../services/listings';
+import { fetchListingsByIds } from '../services/listings';
 import { fetchSavedIds } from '../services/saved';
 import { useAuth } from '../context/AuthContext';
 import type { Listing } from '../types';
@@ -29,12 +29,14 @@ export default function SavedScreen() {
         }
 
         try {
-          const [all, savedIds] = await Promise.all([
-            fetchListings(),
-            fetchSavedIds(profile.uid),
-          ]);
+          // Fetched by id rather than by browsing and filtering down. Browse is
+          // now scoped to one market and capped at a page, so a saved property
+          // in another city — or simply further down the catalogue — would
+          // otherwise silently disappear from this screen.
+          const savedIds = await fetchSavedIds(profile.uid);
+          const saved = await fetchListingsByIds(savedIds);
           if (!active) return;
-          setListings(all.filter(l => savedIds.includes(l.id)));
+          setListings(saved);
         } catch {
           if (active) setListings([]);
         }

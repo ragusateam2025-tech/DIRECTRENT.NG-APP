@@ -30,20 +30,24 @@ export default function BrowseScreen({ navigation }: Props) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  // Filtering happens on the device. With pilot-scale inventory that is instant
-  // and keeps search working offline from Firestore's cache. It will need to
-  // move server-side once listings outgrow a single fetch.
+  // The market scopes the fetch; text, bedrooms and price refine what comes
+  // back. Firestore cannot do substring matching, and these run against a
+  // capped page rather than the whole catalogue, so they stay on the device —
+  // which also keeps search working offline from Firestore's cache.
   const visible = useMemo(() => applyFilters(listings, filters), [listings, filters]);
-  const areas = useMemo(() => availableAreas(listings), [listings]);
+  const areas = useMemo(() => availableAreas(), []);
 
   const load = useCallback(async () => {
     setError('');
     try {
-      setListings(await fetchListings());
+      // A single selected area narrows server-side; several still have to be
+      // filtered here, because Firestore cannot OR across equality checks.
+      const area = filters.areas.length === 1 ? filters.areas[0] : undefined;
+      setListings(await fetchListings({ area }));
     } catch {
       setError('Could not load properties. Pull down to try again.');
     }
-  }, []);
+  }, [filters.areas]);
 
   useEffect(() => {
     load().finally(() => setLoading(false));

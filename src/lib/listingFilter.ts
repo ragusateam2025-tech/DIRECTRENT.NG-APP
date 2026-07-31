@@ -1,9 +1,17 @@
+import { defaultMarket, priceBandsFor, type MarketPriceBand } from '../data/markets';
 import type { Listing } from '../types';
 
 export type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'savings_desc';
 
-/** Preset bands rather than a slider — no extra dependency, and easier to hit on a phone. */
-export type PriceBand = 'any' | 'under_500k' | '500k_1m' | '1m_2m' | 'over_2m';
+/**
+ * Preset bands rather than a slider — no extra dependency, and easier to hit on
+ * a phone.
+ *
+ * A plain string rather than a union of Lagos-shaped literals: the bands
+ * themselves come from the market, so the set of valid values differs between
+ * cities and cannot be enumerated here.
+ */
+export type PriceBand = string;
 
 export interface Filters {
   /** Free text, matched against title, area and address. */
@@ -24,13 +32,16 @@ export const EMPTY_FILTERS: Filters = {
   sort: 'newest',
 };
 
-export const PRICE_BANDS: Array<{ value: PriceBand; label: string; min: number; max: number }> = [
-  { value: 'any', label: 'Any price', min: 0, max: Infinity },
-  { value: 'under_500k', label: 'Under ₦500,000', min: 0, max: 500000 },
-  { value: '500k_1m', label: '₦500,000 – ₦1,000,000', min: 500000, max: 1000000 },
-  { value: '1m_2m', label: '₦1,000,000 – ₦2,000,000', min: 1000000, max: 2000000 },
-  { value: 'over_2m', label: 'Over ₦2,000,000', min: 2000000, max: Infinity },
-];
+/**
+ * Bands for the market currently being browsed.
+ *
+ * Previously a hardcoded Lagos ladder. Applied unchanged to a cheaper city it
+ * would put nearly every property in the bottom band, leaving the filter
+ * technically present and practically useless.
+ */
+export function priceBands(market = defaultMarket()): MarketPriceBand[] {
+  return priceBandsFor(market);
+}
 
 export const SORT_LABELS: Record<SortOption, string> = {
   newest: 'Newest first',
@@ -78,22 +89,31 @@ function matchesQuery(listing: Listing, query: string): boolean {
   return q.split(/\s+/).every(word => haystack.includes(word));
 }
 
-function matchesPrice(listing: Listing, band: PriceBand): boolean {
-  const config = PRICE_BANDS.find(b => b.value === band);
+function matchesPrice(listing: Listing, band: PriceBand, bands: MarketPriceBand[]): boolean {
+  const config = bands.find(b => b.value === band);
   if (!config) return true;
   const rent = listing.pricing.annualRent;
   // Upper bound is exclusive so adjacent bands cannot both claim the same rent.
   return rent >= config.min && (config.max === Infinity ? true : rent < config.max);
 }
 
-/** Applies every filter. Order does not matter — all conditions must hold. */
-export function filterListings(listings: Listing[], filters: Filters): Listing[] {
+/**
+ * Applies every filter. Order does not matter — all conditions must hold.
+ *
+ * Takes the market's bands so the same rent is judged against local
+ * expectations rather than Lagos ones.
+ */
+export function filterListings(
+  listings: Listing[],
+  filters: Filters,
+  bands: MarketPriceBand[] = priceBands(),
+): Listing[] {
   return listings.filter(listing => {
     if (!matchesQuery(listing, filters.query)) return false;
     if (filters.areas.length > 0 && !filters.areas.includes(listing.location.area)) return false;
     // A bedroom filter means "at least this many" — someone wanting 2 will take 3.
     if (filters.bedrooms !== null && listing.basicInfo.bedrooms < filters.bedrooms) return false;
-    if (!matchesPrice(listing, filters.priceBand)) return false;
+    if (!matchesPrice(listing, filters.priceBand, bands)) return false;
     return true;
   });
 }
@@ -118,11 +138,22 @@ export function sortListings(listings: Listing[], sort: SortOption): Listing[] {
 }
 
 /** Filter then sort, which is the order the Browse screen needs. */
-export function applyFilters(listings: Listing[], filters: Filters): Listing[] {
-  return sortListings(filterListings(listings, filters), filters.sort);
+export function applyFilters(
+  listings: Listing[],
+  filters: Filters,
+  bands: MarketPriceBand[] = priceBands(),
+): Listing[] {
+  return sortListings(filterListings(listings, filters, bands), filters.sort);
 }
 
-/** Every area present in the data, so the filter never offers an empty result. */
-export function availableAreas(listings: Listing[]): string[] {
-  return Array.from(new Set(listings.map(l => l.location.area))).sort();
+/**
+ * Areas the filter offers, from the market rather than from loaded listings.
+ *
+ * Deriving them from the results was only correct while every listing was
+ * downloaded. Now that Browse fetches a capped page, derivation would offer
+ * only the areas that happened to appear on it — so a neighbourhood would
+ * vanish from the filter precisely when it had too few listings to show up.
+ */
+export function availableAreas(market = defaultMarket()): string[] {
+  return [...market.areas].sort();
 }

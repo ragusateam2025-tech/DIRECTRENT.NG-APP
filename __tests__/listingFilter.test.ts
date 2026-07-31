@@ -6,7 +6,7 @@ import {
   hasActiveFilters,
   activeFilterCount,
   EMPTY_FILTERS,
-  PRICE_BANDS,
+  priceBands,
   type Filters,
 } from '../src/lib/listingFilter';
 import type { Listing } from '../src/types';
@@ -102,26 +102,26 @@ describe('filterListings', () => {
   });
 
   it('filters by price band, upper bound exclusive', () => {
-    const result = filterListings(DATA, withFilters({ priceBand: '500k_1m' }));
+    const result = filterListings(DATA, withFilters({ priceBand: '500000_1000000' }));
     // 750,000 and 900,000 qualify; 1,000,000 belongs to the next band up.
     expect(result.map(l => l.id)).toEqual(['b', 'c']);
   });
 
   it('puts a boundary rent in exactly one band', () => {
-    const lower = filterListings(DATA, withFilters({ priceBand: '500k_1m' })).map(l => l.id);
-    const upper = filterListings(DATA, withFilters({ priceBand: '1m_2m' })).map(l => l.id);
+    const lower = filterListings(DATA, withFilters({ priceBand: '500000_1000000' })).map(l => l.id);
+    const upper = filterListings(DATA, withFilters({ priceBand: '1000000_2000000' })).map(l => l.id);
     expect(lower).not.toContain('d');
     expect(upper).toContain('d');
   });
 
   it('handles the open-ended top band', () => {
-    expect(filterListings(DATA, withFilters({ priceBand: 'over_2m' }))).toHaveLength(0);
+    expect(filterListings(DATA, withFilters({ priceBand: 'over_2000000' }))).toHaveLength(0);
   });
 
   it('combines filters, requiring all to hold', () => {
     const result = filterListings(
       DATA,
-      withFilters({ areas: ['Surulere'], bedrooms: 2, priceBand: '1m_2m' }),
+      withFilters({ areas: ['Surulere'], bedrooms: 2, priceBand: '1000000_2000000' }),
     );
     // Both Surulere properties in this price band qualify: 'd' has exactly two
     // bedrooms and 'f' has three, which satisfies "at least two".
@@ -171,8 +171,16 @@ describe('applyFilters', () => {
 });
 
 describe('helpers', () => {
-  it('lists the areas present, sorted and deduplicated', () => {
-    expect(availableAreas(DATA)).toEqual(['Surulere', 'Yaba']);
+  it('offers the market’s areas, sorted — not just those in the loaded page', () => {
+    // Deliberately no longer derived from results. Browse now fetches a capped
+    // page, so deriving would drop a neighbourhood from the filter exactly when
+    // it had too few listings to appear on that page.
+    const areas = availableAreas();
+
+    expect(areas).toEqual([...areas].sort());
+    expect(areas).toContain('Yaba');
+    expect(areas).toContain('Lekki');
+    expect(areas.length).toBeGreaterThan(new Set(DATA.map(l => l.location.area)).size);
   });
 
   it('reports no active filters for the empty state', () => {
@@ -188,12 +196,12 @@ describe('helpers', () => {
 
   it('counts each narrowing filter once', () => {
     expect(
-      activeFilterCount(withFilters({ query: 'yaba', bedrooms: 2, priceBand: '1m_2m' })),
+      activeFilterCount(withFilters({ query: 'yaba', bedrooms: 2, priceBand: '1000000_2000000' })),
     ).toBe(3);
   });
 
   it('covers every rent with exactly one band besides "any"', () => {
-    const bands = PRICE_BANDS.filter(b => b.value !== 'any');
+    const bands = priceBands().filter(b => b.value !== 'any');
     for (const rent of [0, 499999, 500000, 999999, 1000000, 1999999, 2000000, 9999999]) {
       const matching = bands.filter(
         b => rent >= b.min && (b.max === Infinity ? true : rent < b.max),
