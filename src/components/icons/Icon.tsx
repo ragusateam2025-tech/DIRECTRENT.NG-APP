@@ -136,6 +136,28 @@ export function IconMessages({ size = 24, color = colors.textSecondary, filled }
   );
 }
 
+/**
+ * Live tour — the doorway, opened from wherever you are.
+ *
+ * Deliberately not a video camera. A camera describes the equipment; this is
+ * about the thing Directrent already claims with IconBrowse — getting through
+ * the door — done without the journey. So it is an archway standing on the
+ * same ground line as Browse, with a play triangle inside it.
+ *
+ * Two elements only. A live dot, a lens, or anything else a third mark might
+ * add stops being readable at the 18px this appears at, and the label beside
+ * it already says "live".
+ */
+export function IconLiveTour({ size = 24, color = colors.accentGold }: IconProps) {
+  return (
+    <Svg {...baseProps(size, color)}>
+      <Path d="M6 20.5V9.5a6 6 0 0 1 12 0v11" />
+      <Line x1="3.5" y1="20.5" x2="20.5" y2="20.5" />
+      <Path d="M10.7 11.3 15.1 13.8 10.7 16.3Z" fill={color} fillOpacity={0.14} />
+    </Svg>
+  );
+}
+
 /** Profile — a circle and a shoulder line, on the same geometric grid. */
 export function IconProfile({ size = 24, color = colors.textSecondary, filled }: IconProps) {
   return (

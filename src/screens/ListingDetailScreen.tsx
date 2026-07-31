@@ -14,6 +14,7 @@ import { hasApplied } from '../services/applications';
 import { useAuth } from '../context/AuthContext';
 import { allImageSources } from '../lib/listingImage';
 import PhotoGallery from '../components/PhotoGallery';
+import LiveTourBanner from '../components/LiveTourBanner';
 import AnimatedSaveIcon from '../components/icons/AnimatedSaveIcon';
 import { IconMessages } from '../components/icons/Icon';
 import { ensureConversation } from '../services/messages';
@@ -164,6 +165,10 @@ export default function ListingDetailScreen({ route }: Props) {
       </Animated.View>
 
       <SavingsBreakdown annualRent={listing.pricing.annualRent} />
+
+      {/* Tenants only. An owner looking at their own listing is not the person
+          being offered a tour of it. */}
+      {listing.ownerId !== profile?.uid && <LiveTourBanner />}
 
       <Text style={styles.sectionHeading}>About this property</Text>
       <Text style={styles.description}>{listing.details.description}</Text>
