@@ -9,7 +9,7 @@ interface TextFieldProps {
   placeholder?: string;
   secureTextEntry?: boolean;
   autoCapitalize?: 'none' | 'words';
-  keyboardType?: 'default' | 'email-address';
+  keyboardType?: 'default' | 'email-address' | 'phone-pad';
   error?: string;
 }
 

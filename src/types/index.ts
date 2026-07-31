@@ -99,6 +99,8 @@ export interface UserProfile {
   uid: string;
   fullName: string;
   email: string;
+  /** Normalised to +234XXXXXXXXXX. Absent until the user adds it. */
+  phone?: string;
   role: UserRole;
   /** False until the user passes the role-selection screen. */
   roleChosen: boolean;

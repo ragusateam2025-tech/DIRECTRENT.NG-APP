@@ -18,6 +18,8 @@ interface AuthContextValue {
   logIn: (email: string, password: string) => Promise<void>;
   logOut: () => Promise<void>;
   setRole: (role: UserRole) => Promise<void>;
+  /** Partial edit of the user's own details. Identity fields are not editable. */
+  updateDetails: (changes: { fullName?: string; phone?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -152,9 +154,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(updated);
   }
 
+  /**
+   * Edits the user's own name or phone.
+   *
+   * The Firebase Auth displayName is updated alongside the Firestore document,
+   * because AuthContext falls back to displayName when the profile document
+   * cannot be read — leaving them out of step would make a rename appear to
+   * revert the next time Firestore was unreachable.
+   */
+  async function updateDetails(changes: { fullName?: string; phone?: string }) {
+    if (!profile) return;
+
+    const updated: UserProfile = { ...profile, ...changes };
+
+    // Firestore rejects undefined outright, and clearing the phone field is a
+    // legitimate edit — so undefined keys are dropped rather than written.
+    const payload = Object.fromEntries(
+      Object.entries(updated).filter(([, value]) => value !== undefined),
+    );
+
+    await setDoc(doc(db, COLLECTIONS.users, profile.uid), payload);
+
+    if (changes.fullName && auth.currentUser) {
+      await updateProfile(auth.currentUser, { displayName: changes.fullName });
+    }
+
+    setProfile(updated);
+  }
+
   return (
     <AuthContext.Provider
-      value={{ profile, initialising, signUp, logIn, logOut, setRole }}
+      value={{ profile, initialising, signUp, logIn, logOut, setRole, updateDetails }}
     >
       {children}
     </AuthContext.Provider>
