@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
    *
    * Square-cornered rather than a capsule. A pill is what a component library
    * hands you; this shape is the app's own, and it comes from somewhere: the
-   * icon set draws Browse and Live tour as forms standing on a ground line, and
+   * icon set draws Browse and the 360 tour as forms standing on a ground line, and
    * the tab bar marks the current tab with a short gold rule. So a control here
    * is an upright rectangle standing on that same line.
    *

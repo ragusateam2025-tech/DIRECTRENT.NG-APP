@@ -137,23 +137,26 @@ export function IconMessages({ size = 24, color = colors.textSecondary, filled }
 }
 
 /**
- * Live tour — the doorway, opened from wherever you are.
+ * 360° tour — the doorway, and turning around inside it.
  *
- * Deliberately not a video camera. A camera describes the equipment; this is
- * about the thing Directrent already claims with IconBrowse — getting through
- * the door — done without the journey. So it is an archway standing on the
- * same ground line as Browse, with a play triangle inside it.
+ * Deliberately not a camera or a headset: equipment is not the promise. This
+ * is the doorway Directrent already claims with IconBrowse, standing on the
+ * same ground line, with an orbit sweeping through it.
  *
- * Two elements only. A live dot, a lens, or anything else a third mark might
- * add stops being readable at the 18px this appears at, and the label beside
- * it already says "live".
+ * The orbit replaced a play triangle when this stopped being live video. A
+ * triangle says "press me and something starts"; an arc that comes back on
+ * itself says "you can look around" — which is the actual difference between
+ * a video and a 360 tour, and the whole reason the feature is worth having.
  */
-export function IconLiveTour({ size = 24, color = colors.accentGold }: IconProps) {
+export function IconTour360({ size = 24, color = colors.accentGold }: IconProps) {
   return (
     <Svg {...baseProps(size, color)}>
       <Path d="M6 20.5V9.5a6 6 0 0 1 12 0v11" />
       <Line x1="3.5" y1="20.5" x2="20.5" y2="20.5" />
-      <Path d="M10.7 11.3 15.1 13.8 10.7 16.3Z" fill={color} fillOpacity={0.14} />
+      {/* An ellipse read as a flat plate at 18px, so the sweep is drawn as an
+          open arc with a head — the eye completes the circle on its own. */}
+      <Path d="M8.4 14.4a3.6 3.6 0 0 0 7.2 0 3.6 3.6 0 0 0-7.2 0" />
+      <Path d="M14.4 12.1l1.5.3-.4 1.5" />
     </Svg>
   );
 }

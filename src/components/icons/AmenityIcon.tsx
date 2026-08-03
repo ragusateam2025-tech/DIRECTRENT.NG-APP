@@ -10,7 +10,7 @@ import { colors } from '../../theme/tokens';
  *
  *   **Anything that belongs to the building stands on a ground line.**
  *
- * That line is already the app's signature, carried by Browse and Live tour.
+ * That line is already the app's signature, carried by Browse and the 360 tour.
  * Here it separates two kinds of fact at a glance: a gate, a generator and a
  * borehole sit on the ground because they are part of the property, while a
  * fitted kitchen or air conditioning floats because it is inside it. Nobody

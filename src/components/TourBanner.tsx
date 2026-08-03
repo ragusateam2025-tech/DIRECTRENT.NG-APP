@@ -3,10 +3,10 @@ import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { colors, typography, spacing, radius } from '../theme/tokens';
 import { duration } from '../theme/motion';
-import { IconLiveTour } from './icons/Icon';
+import { IconTour360 } from './icons/Icon';
 
 /**
- * Announces live tours before they exist.
+ * Announces 360 tours before they exist.
  *
  * Deliberately not a button. A disabled control invites a tap and then refuses
  * it, which reads as a broken app rather than a promise — so this is a
@@ -16,29 +16,29 @@ import { IconLiveTour } from './icons/Icon';
  * act on, and borrowing it here would make the one colour that means "do this"
  * mean "wait" as well.
  */
-export default function LiveTourBanner() {
+export default function TourBanner() {
   return (
     <Animated.View
       entering={FadeIn.duration(duration.normal)}
       style={styles.card}
       accessibilityRole="text"
-      accessibilityLabel="Live tour, coming soon. Walk through this property from your phone."
+      accessibilityLabel="360 degree tour, coming soon. Look around every room from your phone."
     >
       <View style={styles.icon}>
-        <IconLiveTour size={26} color={colors.accentGold} />
+        <IconTour360 size={26} color={colors.accentGold} />
       </View>
 
       <View style={styles.copy}>
         <View style={styles.headingRow}>
-          <Text style={styles.heading}>Live tour</Text>
+          <Text style={styles.heading}>360° tour</Text>
           <View style={styles.pill}>
             <Text style={styles.pillText}>Coming soon</Text>
           </View>
         </View>
 
         <Text style={styles.body}>
-          Walk through this property from your phone, guided by the owner — before you
-          spend a day and a transport fare crossing the city.
+          Look around every room from your phone before you spend a day and a
+          transport fare crossing the city to find out it was misrepresented.
         </Text>
       </View>
     </Animated.View>

@@ -26,7 +26,7 @@ import { allImageSources } from '../lib/listingImage';
 import { groupAmenities } from '../data/amenities';
 import { amenityIcon } from '../components/icons/AmenityIcon';
 import PhotoGallery from '../components/PhotoGallery';
-import LiveTourBanner from '../components/LiveTourBanner';
+import TourBanner from '../components/TourBanner';
 import AnimatedSaveIcon from '../components/icons/AnimatedSaveIcon';
 import { IconMessages, IconChevron, IconCall, IconCheck } from '../components/icons/Icon';
 import { ensureConversation } from '../services/messages';
@@ -214,7 +214,7 @@ export default function ListingDetailScreen({ route }: Props) {
 
       {/* Tenants only. An owner looking at their own listing is not the person
           being offered a tour of it. */}
-      {listing.ownerId !== profile?.uid && <LiveTourBanner />}
+      {listing.ownerId !== profile?.uid && <TourBanner />}
 
       <Text style={styles.sectionHeading}>About this property</Text>
       <Text style={styles.description}>{listing.details.description}</Text>
