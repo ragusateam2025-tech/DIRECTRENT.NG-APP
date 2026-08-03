@@ -23,10 +23,11 @@ import { isSaved, toggleSaved } from '../services/saved';
 import { hasApplied } from '../services/applications';
 import { useAuth } from '../context/AuthContext';
 import { allImageSources } from '../lib/listingImage';
+import { groupAmenities } from '../data/amenities';
 import PhotoGallery from '../components/PhotoGallery';
 import LiveTourBanner from '../components/LiveTourBanner';
 import AnimatedSaveIcon from '../components/icons/AnimatedSaveIcon';
-import { IconMessages, IconChevron, IconCall } from '../components/icons/Icon';
+import { IconMessages, IconChevron, IconCall, IconCheck } from '../components/icons/Icon';
 import { ensureConversation } from '../services/messages';
 import type { Listing } from '../types';
 
@@ -239,9 +240,15 @@ export default function ListingDetailScreen({ route }: Props) {
           entering={FadeIn.duration(duration.quick)}
           style={styles.amenities}
         >
-          {listing.details.amenities.map(amenity => (
-            <View key={amenity} style={styles.amenityChip}>
-              <Text style={styles.amenityText}>{amenity}</Text>
+          {groupAmenities(listing.details.amenities).map(group => (
+            <View key={group.label} style={styles.amenityGroup}>
+              <Text style={styles.amenityGroupLabel}>{group.label}</Text>
+              {group.items.map(amenity => (
+                <View key={amenity} style={styles.amenityRow}>
+                  <IconCheck size={14} color={colors.success} />
+                  <Text style={styles.amenityText}>{amenity}</Text>
+                </View>
+              ))}
             </View>
           ))}
         </Animated.View>
@@ -373,7 +380,7 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.base,
     lineHeight: 24,
   },
-  amenities: { flexDirection: 'row', flexWrap: 'wrap' },
+  amenities: {},
   /**
    * Header row for a collapsible section. The heading keeps its own style so
    * the section reads identically to the ones that do not collapse — nothing
@@ -400,17 +407,17 @@ const styles = StyleSheet.create({
   },
   chevronOpen: { transform: [{ rotate: '180deg' }] },
   /** Squared off to match the controls on Profile, standing on a ground line. */
-  amenityChip: {
-    backgroundColor: colors.backgroundElevated,
-    borderRadius: 2,
-    borderBottomWidth: 2,
-    borderBottomColor: colors.border,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    marginRight: spacing.sm,
-    marginBottom: spacing.sm,
+  /** Two columns on a phone would truncate the longer labels, so one column. */
+  amenityGroup: { marginBottom: spacing.md },
+  amenityGroupLabel: {
+    color: colors.accentGold,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.xs,
+    marginBottom: spacing.xs,
   },
+  amenityRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   amenityText: {
+    marginLeft: spacing.sm,
     color: colors.textSecondary,
     fontFamily: typography.families.body,
     fontSize: typography.sizes.xs,

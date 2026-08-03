@@ -8,23 +8,9 @@ import { Chip } from './BasicInfoStep';
 import { formatNaira } from '../../../lib/format';
 import { formatNigerianPhone } from '../../../lib/phone';
 import { IconCheck } from '../../../components/icons/Icon';
+import { AMENITY_GROUPS } from '../../../data/amenities';
 import type { DraftListing } from '../AddPropertyScreen';
 
-/** Common amenities in Lagos rentals, matching the seeded listings' vocabulary. */
-const AMENITIES = [
-  'Prepaid meter',
-  'Borehole water',
-  '24-hour security',
-  'Backup generator',
-  'Parking space',
-  'Security gate',
-  'En-suite bathroom',
-  'Fitted wardrobes',
-  'Balcony',
-  'POP ceilings',
-  'Water treatment',
-  'Serviced compound',
-];
 
 export default function DetailsStep({
   draft,
@@ -92,16 +78,23 @@ export default function DetailsStep({
       />
 
       <Text style={styles.label}>Amenities</Text>
-      <View style={styles.chips}>
-        {AMENITIES.map(a => (
-          <Chip
-            key={a}
-            label={a}
-            selected={amenities.includes(a)}
-            onPress={() => toggleAmenity(a)}
-          />
-        ))}
-      </View>
+      {/* Grouped so an owner scans one category at a time instead of reading
+          forty chips in a row looking for the one they want. */}
+      {AMENITY_GROUPS.map(group => (
+        <View key={group.id}>
+          <Text style={styles.groupLabel}>{group.label}</Text>
+          <View style={styles.chips}>
+            {group.items.map(a => (
+              <Chip
+                key={a}
+                label={a}
+                selected={amenities.includes(a)}
+                onPress={() => toggleAmenity(a)}
+              />
+            ))}
+          </View>
+        </View>
+      ))}
 
       <TextField
         label="Maximum occupants"
@@ -191,6 +184,12 @@ const styles = StyleSheet.create({
     fontFamily: typography.families.bodyMedium,
     fontSize: typography.sizes.sm,
     marginBottom: spacing.sm,
+  },
+  groupLabel: {
+    color: colors.accentGold,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.xs,
+    marginBottom: spacing.xs,
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: spacing.md },
   consent: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.md },
