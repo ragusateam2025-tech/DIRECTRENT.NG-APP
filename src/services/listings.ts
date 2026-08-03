@@ -56,7 +56,7 @@ export async function fetchListings(options: ListingQuery = {}): Promise<Listing
   );
 
   const snapshot = await getDocs(q);
-  const scoped = snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as Listing);
+  const scoped = snapshot.docs.map(d => withOwner({ id: d.id, ...d.data() } as Listing));
 
   if (scoped.length > 0) return scoped;
   return fetchLegacyListings(options, marketId);
@@ -88,7 +88,7 @@ async function fetchLegacyListings(
   const snapshot = await getDocs(q);
 
   return snapshot.docs
-    .map(d => ({ id: d.id, ...d.data() }) as Listing)
+    .map(d => withOwner({ id: d.id, ...d.data() } as Listing))
     .filter(l => {
       // Only documents with no market at all are adopted. One that names a
       // different market is not legacy data — it belongs somewhere else.
@@ -115,7 +115,7 @@ export async function fetchListingsByIds(ids: string[]): Promise<Listing[]> {
     chunks.map(async chunk => {
       const q = query(collection(db, COLLECTIONS.listings), where(documentId(), 'in', chunk));
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as Listing);
+      return snapshot.docs.map(d => withOwner({ id: d.id, ...d.data() } as Listing));
     }),
   );
 
@@ -126,5 +126,28 @@ export async function fetchListingsByIds(ids: string[]): Promise<Listing[]> {
 export async function fetchListing(id: string): Promise<Listing | null> {
   const snapshot = await getDoc(doc(db, COLLECTIONS.listings, id));
   if (!snapshot.exists()) return null;
-  return { id: snapshot.id, ...snapshot.data() } as Listing;
+  return withOwner({ id: snapshot.id, ...snapshot.data() } as Listing);
 }
+
+/**
+ * TEMPORARY — delete once every listing document carries ownerId.
+ *
+ * The seeded listings were written before the field existed, so contact
+ * buttons hid themselves and enquiries died writing an undefined ownerId.
+ * Fixing the data needs console access; this fills the gap in the meantime by
+ * treating an owner-less listing as belonging to the demo account, which is
+ * what seedListings.ts already says it is.
+ *
+ * Messaging works fully under this: the conversation is created with `demo` as
+ * a participant and every write passes the rules. Nobody is on the other end
+ * to reply, so it demonstrates the tenant's side of the thread and no more.
+ *
+ * Only ever applies to documents with no owner at all. A real listing always
+ * carries one and is untouched.
+ */
+function withOwner(listing: Listing): Listing {
+  if (listing.ownerId) return listing;
+  return { ...listing, ownerId: SEED_OWNER_ID };
+}
+
+const SEED_OWNER_ID = 'demo';
