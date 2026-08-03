@@ -76,13 +76,18 @@ export async function fetchListings(options: ListingQuery = {}): Promise<Listing
  *
  * Listings written before the market field existed do not match the scoped
  * query, so they vanished from Browse entirely. Firestore cannot express
- * "field equals X or field is absent" in one query, so the unscoped read
- * happens only when the scoped one found nothing, and its results are treated
- * as belonging to the default market — true by definition, since Lagos was the
- * only market when they were written.
+ * "field equals X or field is absent" in one query, so the unscoped read runs
+ * alongside the scoped one on every call and the caller merges both, rather
+ * than falling back only when the scoped read came back empty — that version
+ * stopped firing the moment one tagged listing existed, and took the untagged
+ * ones off Browse with it.
  *
- * The cost of getting this wrong is bounded: it is one capped read, on an
- * empty result, and it disappears the moment the backfill runs.
+ * Documents with no market are treated as belonging to the default market —
+ * true by definition, since Lagos was the only market when they were written.
+ *
+ * The cost is one extra capped read per browse, paid on every call for as long
+ * as any listing is missing its market, and it disappears the moment the
+ * backfill runs.
  */
 async function fetchLegacyListings(
   options: ListingQuery,
