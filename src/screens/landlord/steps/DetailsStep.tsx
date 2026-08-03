@@ -31,6 +31,10 @@ export default function DetailsStep({
   // Defaults to off. Sharing a personal number should be a deliberate yes,
   // never something an owner discovers they agreed to by not noticing.
   const [callable, setCallable] = useState(!!draft.ownerPhone);
+  // Null until answered, so "not stated" stays distinct from "no".
+  const [ownerOccupied, setOwnerOccupied] = useState<boolean | null>(
+    draft.ownerOccupied ?? null,
+  );
 
   function toggleAmenity(a: string) {
     setAmenities(prev => (prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]));
@@ -60,6 +64,9 @@ export default function DetailsStep({
       // undefined outright, and a merged write would leave a previously
       // shared number published after the owner turned the choice off.
       ownerPhone: callable && profile?.phone ? profile.phone : null,
+      // Omitted entirely when unanswered — Firestore rejects undefined, and an
+      // unanswered question must not be stored as a "no".
+      ...(ownerOccupied === null ? {} : { ownerOccupied }),
     });
   }
 
@@ -125,6 +132,30 @@ export default function DetailsStep({
           Your listing goes live as soon as you publish it. Editing a published
           listing is not possible yet — check it over before you publish.
         </Text>
+      </View>
+
+      {/*
+        Asked plainly because it changes the tenancy more than most facilities
+        do. An owner on site means house rules and less privacy, and also
+        faster repairs and someone accountable. Neither answer is the better
+        one — leaving it unanswered is what costs a tenant a wasted journey.
+      */}
+      <Text style={styles.heading}>Do you live on the property?</Text>
+      <Text style={styles.consentNote}>
+        Tenants ask this at every viewing. Answering here saves them a journey
+        across Lagos and saves you the same conversation each time.
+      </Text>
+      <View style={styles.chips}>
+        <Chip
+          label="Yes, I live here"
+          selected={ownerOccupied === true}
+          onPress={() => setOwnerOccupied(true)}
+        />
+        <Chip
+          label="No, I live elsewhere"
+          selected={ownerOccupied === false}
+          onPress={() => setOwnerOccupied(false)}
+        />
       </View>
 
       <Text style={styles.heading}>Can tenants call you?</Text>

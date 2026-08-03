@@ -214,6 +214,18 @@ export interface Listing {
    * is listed rather than guessing.
    */
   ownerPhone?: string | null;
+  /**
+   * Whether the owner lives on the property.
+   *
+   * A first-order question for Nigerian renters and one no international
+   * template asks: an owner in the compound means house rules, less privacy,
+   * often a stricter tenancy — and equally, faster repairs and someone
+   * accountable on site. Tenants ask it on every viewing, so the listing
+   * answers it before anyone travels.
+   *
+   * Absent on listings created before the field existed; shown only when set.
+   */
+  ownerOccupied?: boolean;
   basicInfo: {
     title: string;
     propertyType: PropertyType;

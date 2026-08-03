@@ -24,6 +24,7 @@ import { hasApplied } from '../services/applications';
 import { useAuth } from '../context/AuthContext';
 import { allImageSources } from '../lib/listingImage';
 import { groupAmenities } from '../data/amenities';
+import { amenityIcon } from '../components/icons/AmenityIcon';
 import PhotoGallery from '../components/PhotoGallery';
 import LiveTourBanner from '../components/LiveTourBanner';
 import AnimatedSaveIcon from '../components/icons/AnimatedSaveIcon';
@@ -198,6 +199,15 @@ export default function ListingDetailScreen({ route }: Props) {
         <Fact value={String(listing.basicInfo.bedrooms)} label="Bedrooms" />
         <Fact value={String(listing.basicInfo.bathrooms)} label="Bathrooms" />
         <Fact value={String(listing.details.maxOccupants)} label="Max occupants" />
+        {/* Shown only when the owner answered. Absent means unstated, which is
+            honest — inferring "no" from silence would mislead a tenant about
+            the thing they most want to know before travelling. */}
+        {listing.ownerOccupied !== undefined && (
+          <Fact
+            value={listing.ownerOccupied ? 'Yes' : 'No'}
+            label="Owner on site"
+          />
+        )}
       </Animated.View>
 
       <SavingsBreakdown annualRent={listing.pricing.annualRent} />
@@ -243,12 +253,15 @@ export default function ListingDetailScreen({ route }: Props) {
           {groupAmenities(listing.details.amenities).map(group => (
             <View key={group.label} style={styles.amenityGroup}>
               <Text style={styles.amenityGroupLabel}>{group.label}</Text>
-              {group.items.map(amenity => (
+              {group.items.map(amenity => {
+                const Glyph = amenityIcon(amenity, group.label);
+                return (
                 <View key={amenity} style={styles.amenityRow}>
-                  <IconCheck size={14} color={colors.success} />
+                  <Glyph size={19} color={colors.accentGold} />
                   <Text style={styles.amenityText}>{amenity}</Text>
                 </View>
-              ))}
+                );
+              })}
             </View>
           ))}
         </Animated.View>
