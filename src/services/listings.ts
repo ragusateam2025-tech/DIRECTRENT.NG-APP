@@ -58,8 +58,17 @@ export async function fetchListings(options: ListingQuery = {}): Promise<Listing
   const snapshot = await getDocs(q);
   const scoped = snapshot.docs.map(d => withOwner({ id: d.id, ...d.data() } as Listing));
 
-  if (scoped.length > 0) return scoped;
-  return fetchLegacyListings(options, marketId);
+  // Merged, not used as a last resort.
+  //
+  // This first ran only when the scoped query came back empty, which held
+  // exactly until one properly tagged listing existed — at that point the
+  // fallback stopped firing and every untagged listing silently vanished from
+  // Browse. A migration shim has to cover the mixed state, which is the whole
+  // period it exists for, so both reads happen and the results are merged.
+  const legacy = await fetchLegacyListings(options, marketId);
+  const seen = new Set(scoped.map(l => l.id));
+
+  return [...scoped, ...legacy.filter(l => !seen.has(l.id))];
 }
 
 /**
