@@ -24,7 +24,7 @@ import { hasApplied } from '../services/applications';
 import { useAuth } from '../context/AuthContext';
 import { allImageSources } from '../lib/listingImage';
 import { groupAmenities } from '../data/amenities';
-import { amenityIcon } from '../components/icons/AmenityIcon';
+import AnimatedAmenityIcon from '../components/icons/AnimatedAmenityIcon';
 import PhotoGallery from '../components/PhotoGallery';
 import TourBanner from '../components/TourBanner';
 import AnimatedSaveIcon from '../components/icons/AnimatedSaveIcon';
@@ -250,18 +250,19 @@ export default function ListingDetailScreen({ route }: Props) {
           entering={FadeIn.duration(duration.quick)}
           style={styles.amenities}
         >
-          {groupAmenities(listing.details.amenities).map(group => (
+          {groupAmenities(listing.details.amenities).map((group, gi) => (
             <View key={group.label} style={styles.amenityGroup}>
               <Text style={styles.amenityGroupLabel}>{group.label}</Text>
-              {group.items.map(amenity => {
-                const Glyph = amenityIcon(amenity, group.label);
-                return (
+              {group.items.map((amenity, i) => (
                 <View key={amenity} style={styles.amenityRow}>
-                  <Glyph size={19} color={colors.accentGold} />
+                  <AnimatedAmenityIcon
+                    amenity={amenity}
+                    group={group.label}
+                    index={gi * 3 + i}
+                  />
                   <Text style={styles.amenityText}>{amenity}</Text>
                 </View>
-                );
-              })}
+              ))}
             </View>
           ))}
         </Animated.View>
