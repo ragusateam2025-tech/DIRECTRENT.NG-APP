@@ -16,6 +16,21 @@ interface PhotosStepProps {
   onNext: (patch: DraftListing) => void;
   /** Persists after every individual upload, so a killed app loses at most one photo. */
   onChange: (patch: DraftListing) => Promise<void>;
+  /**
+   * Whether removing a photo also deletes the file.
+   *
+   * True while building a new listing: nobody is looking at it, and leaving
+   * files behind for every photo an owner tried and rejected would fill
+   * Storage with rubbish.
+   *
+   * False when editing a published one. The document is not written until the
+   * owner saves, so deleting the file first would leave a live listing
+   * pointing at a photo that no longer exists — a broken image for every
+   * tenant browsing right now, and permanent if the owner then walks away
+   * without saving. The file is left in place instead; an unreferenced photo
+   * costs a little storage and breaks nothing.
+   */
+  deleteFromStorage?: boolean;
 }
 
 export default function PhotosStep({
@@ -24,6 +39,7 @@ export default function PhotosStep({
   listingId,
   onNext,
   onChange,
+  deleteFromStorage = true,
 }: PhotosStepProps) {
   const [photos, setPhotos] = useState<string[]>(draft.media?.photos ?? []);
   const [uploading, setUploading] = useState(false);
@@ -114,7 +130,9 @@ export default function PhotosStep({
           const next = photos.filter((_, i) => i !== index);
           setPhotos(next);
           await onChange({ media: { ...draft.media, photos: next } });
-          await deletePhoto(ownerId, listingId, index).catch(() => {});
+          if (deleteFromStorage) {
+            await deletePhoto(ownerId, listingId, index).catch(() => {});
+          }
         },
       },
     ]);

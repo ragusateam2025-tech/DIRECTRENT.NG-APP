@@ -38,11 +38,21 @@ import type { Listing } from '../types';
  * All it needs is the listing id.
  */
 interface Props {
-  route: { params: { listingId: string } };
+  route: { name: string; params: { listingId: string } };
 }
 
 export default function ListingDetailScreen({ route }: Props) {
   const { listingId } = route.params;
+  /**
+   * This screen is mounted in two stacks: as `ListingDetail` under Browse and
+   * as `LandlordListingDetail` under My properties. Only the landlord stack
+   * contains the wizard, so offering Edit from Browse would navigate to a route
+   * that does not exist there.
+   *
+   * A "both" account can reach its own listing from either side, so owning the
+   * listing is not enough on its own to know the wizard is reachable.
+   */
+  const canReachWizard = route.name === 'LandlordListingDetail';
   const { profile } = useAuth();
   const navigation = useNavigation<any>();
   const [listing, setListing] = useState<Listing | null>(null);
@@ -289,6 +299,18 @@ export default function ListingDetailScreen({ route }: Props) {
       )}
 
       <View style={styles.actions}>
+        {/* The owner's own listing offers the one thing they came for.
+            Until now a published listing could not be changed at all, so a
+            wrong rent or a typo in the address stood for good. */}
+        {canReachWizard && !!listing.ownerId && listing.ownerId === profile?.uid && (
+          <Button
+            label="Edit listing"
+            variant="secondary"
+            onPress={() => navigation.navigate('AddProperty', { draftId: listingId })}
+            feedback="medium"
+          />
+        )}
+
         {/*
           One way in, not two.
 

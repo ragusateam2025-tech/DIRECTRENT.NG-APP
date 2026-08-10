@@ -9,7 +9,7 @@ import Button from '../../components/Button';
 import { useAuth } from '../../context/AuthContext';
 import {
   newListingId,
-  saveDraft,
+  saveListingProgress,
   publishListing,
   discardDraft,
   MIN_PHOTOS,
@@ -20,7 +20,7 @@ import LocationStep from './steps/LocationStep';
 import PhotosStep from './steps/PhotosStep';
 import PricingStep from './steps/PricingStep';
 import DetailsStep from './steps/DetailsStep';
-import type { Listing } from '../../types';
+import type { Listing, ListingStatus } from '../../types';
 
 const STEPS = ['Basics', 'Location', 'Photos', 'Pricing', 'Details'] as const;
 
@@ -42,6 +42,18 @@ export default function AddPropertyScreen() {
   const [loading, setLoading] = useState(!!existingDraftId);
   const [busy, setBusy] = useState(false);
 
+  /**
+   * The status the listing had when the wizard opened.
+   *
+   * Undefined for a new listing, 'draft' for one being resumed, and 'active'
+   * for a published one being edited. Everything that distinguishes editing
+   * from creating hangs off this, so it is read once and never recomputed from
+   * the draft — the draft is edited as we go and would stop being a record of
+   * where we started.
+   */
+  const [openedAs, setOpenedAs] = useState<ListingStatus | undefined>(undefined);
+  const editingPublished = openedAs !== undefined && openedAs !== 'draft';
+
   useEffect(() => {
     if (!existingDraftId) return;
     let active = true;
@@ -50,6 +62,7 @@ export default function AddPropertyScreen() {
       .then(found => {
         if (!active || !found) return;
         setDraft(found);
+        setOpenedAs(found.status?.listing ?? 'draft');
         // Resume where they left off rather than at the beginning.
         setStep(furthestCompletedStep(found));
       })
@@ -62,12 +75,25 @@ export default function AddPropertyScreen() {
     };
   }, [existingDraftId]);
 
+  /**
+   * Keeps the working copy, and autosaves it while a listing is being created.
+   *
+   * Editing a published listing does NOT autosave. A live property is being
+   * read by tenants right now, and writing each step as it is filled in would
+   * publish half an edit — a changed rent with the old description, or a
+   * listing with two photos while the rest upload. An owner who changes their
+   * mind halfway through would leave it that way.
+   *
+   * So edits are held here and written once, deliberately, from the last step.
+   * Autosave exists to protect work nobody has seen yet; it is the wrong
+   * trade for work everybody can see.
+   */
   async function persist(patch: DraftListing) {
     const merged = { ...draft, ...patch };
     setDraft(merged);
-    if (!profile) return;
+    if (!profile || editingPublished) return;
     try {
-      await saveDraft(listingId.current, profile.uid, profile.fullName, merged);
+      await saveListingProgress(listingId.current, profile.uid, profile.fullName, merged);
     } catch {
       // A failed autosave must not block the owner mid-form. The next step
       // writes the whole draft again, so one lost save is recoverable.
@@ -88,6 +114,27 @@ export default function AddPropertyScreen() {
   }
 
   function confirmLeave() {
+    // Editing a live listing can never delete it.
+    //
+    // The create path offers Discard, which calls discardDraft and removes the
+    // document and every photo with it. That is right for something nobody has
+    // seen and catastrophic for a published property: one tap on the wrong
+    // button and an owner destroys a live listing, its photos, and the
+    // conversations pointing at it.
+    //
+    // Nothing has been written yet either, so leaving simply drops the edits.
+    if (editingPublished) {
+      Alert.alert(
+        'Leave without saving?',
+        'Your changes have not been saved. The listing stays as it is now.',
+        [
+          { text: 'Keep editing', style: 'cancel' },
+          { text: 'Leave', style: 'destructive', onPress: () => navigation.goBack() },
+        ],
+      );
+      return;
+    }
+
     Alert.alert('Save as draft?', 'Your progress and any uploaded photos will be kept.', [
       {
         text: 'Discard',
@@ -103,6 +150,38 @@ export default function AddPropertyScreen() {
 
   async function handlePublish(patch: DraftListing) {
     const merged = { ...draft, ...patch };
+
+    // Editing an existing listing writes once, here, and keeps the status it
+    // arrived with. It does not go through publishListing: that sets the
+    // listing to `active`, which would quietly relist a property the owner had
+    // marked as rented.
+    //
+    // No email gate either. It guards the moment a property first becomes
+    // public; this listing already is, and stopping an owner from correcting a
+    // wrong rent on a live listing would make the app worse, not safer.
+    if (editingPublished) {
+      if (!profile) return;
+      setBusy(true);
+      try {
+        await saveListingProgress(
+          listingId.current,
+          profile.uid,
+          profile.fullName,
+          merged,
+          openedAs,
+        );
+        setDraft(merged);
+        Alert.alert('Changes saved', 'Your listing has been updated.', [
+          { text: 'Done', onPress: () => navigation.goBack() },
+        ]);
+      } catch (err: any) {
+        Alert.alert('Could not save your changes', err?.message ?? 'Please try again.');
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
     // Saved before the gate, not after. Someone stopped here has done the whole
     // wizard, and losing that work because their email is unconfirmed would be
     // a far worse offence than the unconfirmed email.
@@ -196,11 +275,18 @@ export default function AddPropertyScreen() {
             listingId={listingId.current}
             onNext={handleNext}
             onChange={persist}
+            deleteFromStorage={!editingPublished}
           />
         )}
         {step === 3 && <PricingStep draft={draft} onNext={handleNext} />}
         {step === 4 && (
-          <DetailsStep draft={draft} onPublish={handlePublish} publishing={busy} />
+          <DetailsStep
+            draft={draft}
+            onPublish={handlePublish}
+            publishing={busy}
+            submitLabel={editingPublished ? 'Save changes' : 'Publish listing'}
+            submittingLabel={editingPublished ? 'Saving…' : 'Publishing…'}
+          />
         )}
       </Animated.View>
 

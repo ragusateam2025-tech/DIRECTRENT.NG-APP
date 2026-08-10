@@ -50,18 +50,32 @@ export async function fetchMyListings(ownerId: string): Promise<LandlordListing[
 }
 
 /**
- * Writes the draft as it stands. Called after each wizard step so progress
- * survives the app being killed mid-form.
+ * Writes a listing as it stands, from the wizard.
+ *
+ * Called after each step while a new listing is being created, so progress
+ * survives the app being killed mid-form, and once at the end when an existing
+ * listing is edited.
+ *
+ * `status` is a parameter and not a constant, which is the whole point of this
+ * signature. It used to be hardcoded to 'draft' — correct while the wizard only
+ * ever built new listings, and a trap the moment it could open a published one:
+ * the first save would have quietly unpublished a live property, and the owner's
+ * only symptom would have been the listing vanishing from Browse.
+ *
+ * Named `saveListingProgress` rather than `saveDraft` for the same reason. A
+ * function called saveDraft that writes a live listing is a mistake waiting for
+ * whoever reads it next.
  */
-export async function saveDraft(
+export async function saveListingProgress(
   listingId: string,
   ownerId: string,
   ownerName: string,
   partial: Partial<Listing>,
+  status: ListingStatus = 'draft',
 ): Promise<void> {
   await setDoc(
     doc(db, COLLECTIONS.listings, listingId),
-    { ...partial, ownerId, ownerName, status: { listing: 'draft' as ListingStatus } },
+    { ...partial, ownerId, ownerName, status: { listing: status } },
     { merge: true },
   );
 }

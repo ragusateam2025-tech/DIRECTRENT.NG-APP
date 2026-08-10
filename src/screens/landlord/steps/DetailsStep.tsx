@@ -16,10 +16,21 @@ export default function DetailsStep({
   draft,
   onPublish,
   publishing,
+  /**
+   * What the final button does, in the owner's words.
+   *
+   * "Publish listing" is a promise about something that does not exist yet.
+   * Editing a live property is not publishing it, and saying so would suggest
+   * the listing goes away and comes back.
+   */
+  submitLabel = 'Publish listing',
+  submittingLabel = 'Publishing…',
 }: {
   draft: DraftListing;
   onPublish: (patch: DraftListing) => void;
   publishing: boolean;
+  submitLabel?: string;
+  submittingLabel?: string;
 }) {
   const { profile } = useAuth();
   const [description, setDescription] = useState(draft.details?.description ?? '');
@@ -199,7 +210,7 @@ export default function DetailsStep({
 
       <View style={styles.action}>
         <Button
-          label={publishing ? 'Publishing…' : 'Publish listing'}
+          label={publishing ? submittingLabel : submitLabel}
           onPress={handlePublish}
           loading={publishing}
           feedback="medium"
