@@ -36,6 +36,20 @@ const BEDROOM_OPTIONS: Array<{ value: number | null; label: string }> = [
   { value: 3, label: '3+' },
 ];
 
+/**
+ * "Any" first, so the filter opens neutral rather than implying a right answer.
+ *
+ * Listings that never answered match neither Yes nor No, which is why the
+ * wording is about the owner rather than about the data: a tenant choosing
+ * "Yes" is asking for properties where the owner is definitely there, not for
+ * properties where nobody said otherwise.
+ */
+const OWNER_OCCUPIED_OPTIONS: Array<{ value: boolean | null; label: string }> = [
+  { value: null, label: 'Any' },
+  { value: true, label: 'Yes' },
+  { value: false, label: 'No' },
+];
+
 export default function FilterSheet({
   visible,
   filters,
@@ -119,6 +133,21 @@ export default function FilterSheet({
                   label={band.label}
                   selected={draft.priceBand === band.value}
                   onPress={() => setDraft(d => ({ ...d, priceBand: band.value as PriceBand }))}
+                />
+              ))}
+            </View>
+
+            {/* Both answers are offered, not just "no". Wanting the owner on
+                the property is as common a preference as wanting them off it —
+                it means someone accountable for repairs and eyes on the gate. */}
+            <Text style={styles.label}>Owner lives here</Text>
+            <View style={styles.chips}>
+              {OWNER_OCCUPIED_OPTIONS.map(option => (
+                <Option
+                  key={String(option.value)}
+                  label={option.label}
+                  selected={draft.ownerOccupied === option.value}
+                  onPress={() => setDraft(d => ({ ...d, ownerOccupied: option.value }))}
                 />
               ))}
             </View>

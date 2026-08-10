@@ -18,10 +18,12 @@ function listing(over: {
   address?: string;
   bedrooms?: number;
   rent: number;
+  ownerOccupied?: boolean;
 }): Listing {
   return {
     id: over.id,
     ownerId: 'demo',
+    ...(over.ownerOccupied === undefined ? {} : { ownerOccupied: over.ownerOccupied }),
     basicInfo: {
       title: over.title ?? 'A property',
       propertyType: 'two_bedroom',
@@ -200,6 +202,11 @@ describe('helpers', () => {
     ).toBe(3);
   });
 
+  it('counts the owner-occupied choice as a narrowing filter', () => {
+    expect(activeFilterCount({ ...EMPTY_FILTERS, ownerOccupied: false })).toBe(1);
+    expect(hasActiveFilters({ ...EMPTY_FILTERS, ownerOccupied: true })).toBe(true);
+  });
+
   it('covers every rent with exactly one band besides "any"', () => {
     const bands = priceBands().filter(b => b.value !== 'any');
     for (const rent of [0, 499999, 500000, 999999, 1000000, 1999999, 2000000, 9999999]) {
@@ -207,6 +214,36 @@ describe('helpers', () => {
         b => rent >= b.min && (b.max === Infinity ? true : rent < b.max),
       );
       expect(matching).toHaveLength(1);
+    }
+  });
+});
+
+describe('owner-occupied filter', () => {
+  const OCCUPANCY: Listing[] = [
+    listing({ id: 'lives-in', rent: 800000, ownerOccupied: true }),
+    listing({ id: 'lives-out', rent: 800000, ownerOccupied: false }),
+    listing({ id: 'never-asked', rent: 800000 }),
+  ];
+
+  it('returns everything when the choice is "any"', () => {
+    const result = filterListings(OCCUPANCY, { ...EMPTY_FILTERS, ownerOccupied: null });
+    expect(result.map(l => l.id)).toEqual(['lives-in', 'lives-out', 'never-asked']);
+  });
+
+  it('narrows to properties where the owner lives on site', () => {
+    const result = filterListings(OCCUPANCY, { ...EMPTY_FILTERS, ownerOccupied: true });
+    expect(result.map(l => l.id)).toEqual(['lives-in']);
+  });
+
+  it('narrows to properties where the owner lives elsewhere', () => {
+    const result = filterListings(OCCUPANCY, { ...EMPTY_FILTERS, ownerOccupied: false });
+    expect(result.map(l => l.id)).toEqual(['lives-out']);
+  });
+
+  it('excludes listings that never answered from both sides', () => {
+    for (const answer of [true, false]) {
+      const result = filterListings(OCCUPANCY, { ...EMPTY_FILTERS, ownerOccupied: answer });
+      expect(result.map(l => l.id)).not.toContain('never-asked');
     }
   });
 });

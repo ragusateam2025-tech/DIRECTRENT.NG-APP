@@ -21,6 +21,15 @@ export interface Filters {
   /** Empty means any number of bedrooms. A value of 3 means "3 or more". */
   bedrooms: number | null;
   priceBand: PriceBand;
+  /**
+   * Whether the property owner lives on the property. Null means either.
+   *
+   * A filter rather than a note on the listing because it is disqualifying in
+   * both directions: some renters will not take a place with the owner in the
+   * compound, and others specifically want one for the security and the
+   * repairs. Neither group should have to open ten listings to find out.
+   */
+  ownerOccupied: boolean | null;
   sort: SortOption;
 }
 
@@ -29,6 +38,7 @@ export const EMPTY_FILTERS: Filters = {
   areas: [],
   bedrooms: null,
   priceBand: 'any',
+  ownerOccupied: null,
   sort: 'newest',
 };
 
@@ -56,7 +66,8 @@ export function hasActiveFilters(filters: Filters): boolean {
     filters.query.trim().length > 0 ||
     filters.areas.length > 0 ||
     filters.bedrooms !== null ||
-    filters.priceBand !== 'any'
+    filters.priceBand !== 'any' ||
+    filters.ownerOccupied !== null
   );
 }
 
@@ -67,6 +78,7 @@ export function activeFilterCount(filters: Filters): number {
   if (filters.areas.length > 0) count += 1;
   if (filters.bedrooms !== null) count += 1;
   if (filters.priceBand !== 'any') count += 1;
+  if (filters.ownerOccupied !== null) count += 1;
   return count;
 }
 
@@ -114,6 +126,11 @@ export function filterListings(
     // A bedroom filter means "at least this many" — someone wanting 2 will take 3.
     if (filters.bedrooms !== null && listing.basicInfo.bedrooms < filters.bedrooms) return false;
     if (!matchesPrice(listing, filters.priceBand, bands)) return false;
+    // A listing that never answered matches neither Yes nor No. Guessing would
+    // send someone across Lagos on a filter that promised something specific.
+    if (filters.ownerOccupied !== null && listing.ownerOccupied !== filters.ownerOccupied) {
+      return false;
+    }
     return true;
   });
 }

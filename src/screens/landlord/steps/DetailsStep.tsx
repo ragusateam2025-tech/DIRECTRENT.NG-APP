@@ -52,6 +52,13 @@ export default function DetailsStep({
       setError('Maximum occupants must be between 1 and 10.');
       return;
     }
+    // Required, because a renter deciding whether to travel across Lagos to
+    // see a place wants this answered, and an optional question is one most
+    // owners skip. The listing shows "Not stated" only for the back catalogue.
+    if (ownerOccupied === null) {
+      setError('Say whether you live on the property — renters ask before they visit.');
+      return;
+    }
 
     setError('');
     onPublish({
@@ -64,9 +71,9 @@ export default function DetailsStep({
       // undefined outright, and a merged write would leave a previously
       // shared number published after the owner turned the choice off.
       ownerPhone: callable && profile?.phone ? profile.phone : null,
-      // Omitted entirely when unanswered — Firestore rejects undefined, and an
-      // unanswered question must not be stored as a "no".
-      ...(ownerOccupied === null ? {} : { ownerOccupied }),
+      // Always a boolean by this point — publishing is blocked above until the
+      // question is answered.
+      ownerOccupied,
     });
   }
 
