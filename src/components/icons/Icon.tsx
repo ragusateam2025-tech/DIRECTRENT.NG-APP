@@ -266,3 +266,22 @@ export function IconCheck({ size = 24, color = colors.success }: IconProps) {
     </Svg>
   );
 }
+
+/**
+ * Share — something leaving an open container.
+ *
+ * The tray is drawn open at the top rather than as a closed box, so the arrow
+ * reads as leaving rather than as sitting on a lid. Deliberately not the three
+ * connected dots: that mark is close to Enquiries, which is already two points
+ * with an unbroken run between them, and two icons meaning different things
+ * should not share a construction.
+ */
+export function IconShare({ size = 24, color = colors.textSecondary }: IconProps) {
+  return (
+    <Svg {...baseProps(size, color)}>
+      <Path d="M7 11.5H5.5v8h13v-8H17" />
+      <Path d="M12 3.5v11" />
+      <Path d="M8.5 7 12 3.5 15.5 7" />
+    </Svg>
+  );
+}

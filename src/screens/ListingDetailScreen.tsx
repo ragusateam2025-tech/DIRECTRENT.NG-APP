@@ -28,8 +28,15 @@ import AnimatedAmenityIcon from '../components/icons/AnimatedAmenityIcon';
 import PhotoGallery from '../components/PhotoGallery';
 import TourBanner from '../components/TourBanner';
 import AnimatedSaveIcon from '../components/icons/AnimatedSaveIcon';
-import { IconMessages, IconChevron, IconCall, IconCheck } from '../components/icons/Icon';
+import {
+  IconMessages,
+  IconChevron,
+  IconCall,
+  IconCheck,
+  IconShare,
+} from '../components/icons/Icon';
 import { ensureConversation } from '../services/messages';
+import { shareListing } from '../lib/shareListing';
 import type { Listing } from '../types';
 
 /**
@@ -146,6 +153,17 @@ export default function ListingDetailScreen({ route }: Props) {
     Linking.openURL(`tel:${number}`).catch(() => {
       Alert.alert('Could not open the dialler', `Call ${formatNigerianPhone(number)} directly.`);
     });
+  }
+
+  async function handleShare() {
+    if (!listing) return;
+    try {
+      await shareListing(listing);
+    } catch (err: any) {
+      // The user asked for the sheet, so a failure to open it is theirs to
+      // know about. Cancelling is not a failure and does not reach here.
+      Alert.alert('Could not open sharing', err?.message ?? 'Please try again.');
+    }
   }
 
   async function handleToggleSave() {
@@ -350,6 +368,19 @@ export default function ListingDetailScreen({ route }: Props) {
           variant="secondary"
           icon={<AnimatedSaveIcon saved={saved} pulse={savePulse} size={18} color={colors.accentGold} />}
           onPress={handleToggleSave}
+        />
+        {/* Offered to everyone, including the owner — an owner sending their
+            own property to somebody is the same useful act.
+
+            Almost nobody rents alone here: the person who decides is often not
+            the person browsing, so a property forwarded to a spouse or a parent
+            is how the decision actually gets made. */}
+        <View style={styles.actionSpacer} />
+        <Button
+          label="Share this property"
+          variant="secondary"
+          icon={<IconShare size={18} color={colors.accentGold} />}
+          onPress={handleShare}
         />
       </View>
     </ScrollView>
