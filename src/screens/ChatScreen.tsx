@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -22,7 +23,9 @@ import {
   sendMessage,
   subscribeToMessages,
 } from '../services/messages';
-import type { Conversation, Message } from '../types';
+import { setApplicationStatus } from '../services/applications';
+import Button from '../components/Button';
+import type { ApplicationStatus, Conversation, Message } from '../types';
 
 interface Props {
   route: { params: { conversationId: string } };
@@ -43,7 +46,29 @@ export default function ChatScreen({ route }: Props) {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [deciding, setDeciding] = useState<ApplicationStatus | null>(null);
   const listRef = useRef<FlatList<Message>>(null);
+
+  /**
+   * Accepts or declines the enquiry this thread opened with.
+   *
+   * The application and the conversation share an id — both are built from the
+   * listing and the tenant — so the decision needs nothing this screen does not
+   * already have.
+   */
+  async function decide(status: ApplicationStatus) {
+    if (!conversation || deciding) return;
+
+    setDeciding(status);
+    try {
+      await setApplicationStatus(conversation.id, status);
+      setConversation({ ...conversation, applicationStatus: status });
+    } catch (e: any) {
+      Alert.alert('Could not save that', e?.message ?? String(e));
+    } finally {
+      setDeciding(null);
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -118,6 +143,7 @@ export default function ChatScreen({ route }: Props) {
 
   const otherName =
     profile.uid === conversation.landlordId ? conversation.tenantName : conversation.landlordName;
+  const isOwner = profile.uid === conversation.landlordId;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -131,6 +157,50 @@ export default function ChatScreen({ route }: Props) {
             {conversation.listingTitle} · {conversation.listingArea}
           </Text>
         </View>
+
+        {/*
+          The decision, where the conversation is.
+
+          Accepting and declining used to live on a separate Enquiries tab, so
+          an owner read someone's message in one place and answered them in
+          another. It belongs here: the thread is the enquiry, and the decision
+          is a reply to it.
+
+          Only the owner sees the buttons, and only while it is undecided.
+        */}
+        {isOwner && conversation.applicationStatus === 'pending' && (
+          <View style={styles.decision}>
+            <Text style={styles.decisionText}>
+              {conversation.tenantName} is asking about this property.
+            </Text>
+            <View style={styles.decisionButtons}>
+              <View style={styles.decisionButton}>
+                <Button
+                  label="Accept"
+                  loading={deciding === 'accepted'}
+                  onPress={() => decide('accepted')}
+                />
+              </View>
+              <View style={styles.decisionButton}>
+                <Button
+                  label="Decline"
+                  variant="secondary"
+                  loading={deciding === 'declined'}
+                  onPress={() => decide('declined')}
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Both parties see the outcome. A tenant whose enquiry was declined
+            should not have to infer it from silence. */}
+        {conversation.applicationStatus === 'accepted' && (
+          <Text style={[styles.outcome, styles.outcomeGood]}>Enquiry accepted</Text>
+        )}
+        {conversation.applicationStatus === 'declined' && (
+          <Text style={styles.outcome}>Enquiry declined</Text>
+        )}
 
         <FlatList
           ref={listRef}
@@ -216,6 +286,31 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  decision: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.backgroundPaper,
+  },
+  decisionText: {
+    color: colors.textSecondary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    marginBottom: spacing.sm,
+  },
+  decisionButtons: { flexDirection: 'row' },
+  decisionButton: { flex: 1, marginRight: spacing.sm },
+  outcome: {
+    color: colors.textMuted,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.xs,
+    textAlign: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  outcomeGood: { color: colors.success },
   contextName: {
     color: colors.textPrimary,
     fontFamily: typography.families.heading,

@@ -8,6 +8,11 @@ import {
   where,
 } from '@react-native-firebase/firestore';
 import { db, COLLECTIONS } from '../lib/firebase';
+import {
+  ensureConversationFromApplication,
+  sendMessage,
+  setConversationApplicationStatus,
+} from './messages';
 import type {
   Application,
   ApplicationStatus,
@@ -55,11 +60,26 @@ export function applicationId(listingId: string, tenantId: string): string {
   return `${listingId}_${tenantId}`;
 }
 
+/**
+ * Records an enquiry and opens the conversation it belongs to.
+ *
+ * These used to be separate: an enquiry landed in one tab and a message in
+ * another, so a tenant introduced themselves in a form and then introduced
+ * themselves again in a chat, and an owner read the same person twice in two
+ * places. They were never two things — an enquiry is the first message.
+ *
+ * So the answers are posted into the thread as that first message, written by
+ * the tenant, and everything after it is an ordinary conversation.
+ *
+ * Returns the conversation id so the caller can go straight there. Landing a
+ * tenant back on the listing they just enquired about leaves them with nothing
+ * to do and no sign anything happened.
+ */
 export async function submitApplication(
   listing: Listing,
   tenant: UserProfile,
   draft: ApplicationDraft,
-): Promise<void> {
+): Promise<string> {
   const id = applicationId(listing.id, tenant.uid);
 
   const application: Application = {
@@ -81,6 +101,35 @@ export async function submitApplication(
   };
 
   await setDoc(doc(db, COLLECTIONS.applications, id), application);
+
+  const conversation = await ensureConversationFromApplication(
+    application,
+    listing.ownerName ?? 'Property owner',
+  );
+
+  await sendMessage(conversation, tenant.uid, enquirySummary(application));
+
+  return conversation.id;
+}
+
+/**
+ * Turns the form answers into the message the owner actually reads.
+ *
+ * The answers lead and the tenant's own words close it, because an owner
+ * scanning a thread wants the facts — when, how long, how many — before the
+ * pitch. Written as a sentence rather than a labelled block: it has to look
+ * like something a person sent, not a form submission pasted into a chat.
+ */
+function enquirySummary(application: Application): string {
+  const when = MOVE_IN_LABELS[application.moveIn].toLowerCase();
+  const term = LEASE_LABELS[application.leaseMonths].toLowerCase();
+  const people = application.occupants === 1 ? '1 occupant' : `${application.occupants} occupants`;
+
+  const opening =
+    `Hello — I am interested in ${application.listingTitle}. ` +
+    `Looking to move in ${when}, for ${term}, with ${people}.`;
+
+  return application.message ? `${opening}\n\n${application.message}` : opening;
 }
 
 /** Applications this tenant has sent, newest first. */
@@ -110,9 +159,21 @@ export async function hasApplied(listingId: string, tenantId: string): Promise<b
   return applications.some(a => a.listingId === listingId && a.status !== 'withdrawn');
 }
 
+/**
+ * Accepts or declines an enquiry, and tells its thread.
+ *
+ * The application id and the conversation id are built from the same two
+ * values — listing and tenant — so the thread is derivable rather than stored,
+ * and the two cannot point at each other wrongly.
+ *
+ * The conversation write is allowed to fail without failing the decision. An
+ * owner who tapped Accept has accepted; a stale badge on a thread is a smaller
+ * problem than an error message telling them it did not work when it did.
+ */
 export async function setApplicationStatus(
   id: string,
   status: ApplicationStatus,
 ): Promise<void> {
   await updateDoc(doc(db, COLLECTIONS.applications, id), { status });
+  await setConversationApplicationStatus(id, status).catch(() => {});
 }

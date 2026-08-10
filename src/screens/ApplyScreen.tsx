@@ -14,7 +14,6 @@ import {
   MOVE_IN_LABELS,
   LEASE_LABELS,
 } from '../services/applications';
-import { ensureConversation, sendMessage } from '../services/messages';
 import { fetchListing } from '../services/listings';
 import { useAuth } from '../context/AuthContext';
 import type { Listing, MoveInTiming, LeaseDuration } from '../types';
@@ -23,7 +22,7 @@ const MOVE_IN_OPTIONS = Object.keys(MOVE_IN_LABELS) as MoveInTiming[];
 const LEASE_OPTIONS: LeaseDuration[] = [6, 12, 24];
 
 export default function ApplyScreen() {
-  const { profile } = useAuth();
+  const { profile, refreshVerification, resendVerification } = useAuth();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const listingId: string = route.params.listingId;
@@ -46,26 +45,8 @@ export default function ApplyScreen() {
     };
   }, [listingId]);
 
-  /**
-   * Turns the form answers into the message the owner actually reads.
-   *
-   * The answers lead and the tenant's own words close it, because an owner
-   * scanning a thread wants the facts — when, how long, how many — before the
-   * pitch. Written as a sentence rather than a labelled block: it has to look
-   * like something a person sent, not a form submission pasted into a chat.
-   */
-  function openingMessage(target: Listing, count: number): string {
-    const when = MOVE_IN_LABELS[moveIn].toLowerCase();
-    const term = LEASE_LABELS[leaseMonths].toLowerCase();
-    const people = count === 1 ? '1 occupant' : `${count} occupants`;
-
-    return (
-      `Hello — I am interested in ${target.basicInfo.title}. ` +
-      `Looking to move in ${when}, for ${term}, with ${people}.\n\n` +
-      message.trim()
-    );
-  }
-
+  // The opening message lives in submitApplication, next to the enquiry it is
+  // written from, so one place decides what an owner reads.
   async function handleSubmit() {
     if (!listing || !profile) return;
 
@@ -98,31 +79,52 @@ export default function ApplyScreen() {
       return;
     }
 
+    // Gated on a confirmed address, because this is the point where a stranger
+    // reaches a real person about their home. An owner answering an enquiry is
+    // entitled to know the sender opened an inbox we sent mail to — and it is
+    // the cheapest thing standing between them and someone who signed up with
+    // a throwaway address to waste their afternoon.
+    //
+    // Checked live rather than trusting the cached flag: the link is opened in
+    // a browser, usually on another device, and nothing tells the app.
+    const verified = await refreshVerification();
+    if (!verified) {
+      setError('');
+      Alert.alert(
+        'Confirm your email first',
+        'We sent a link to your email address when you signed up. Open it, then come back and send this enquiry.',
+        [
+          { text: 'Later', style: 'cancel' },
+          {
+            text: 'Send it again',
+            onPress: () => {
+              resendVerification()
+                .then(() => Alert.alert('Sent', 'Check your email for the confirmation link.'))
+                .catch(e => Alert.alert('Could not send it', e?.message ?? String(e)));
+            },
+          },
+        ],
+      );
+      return;
+    }
+
     setError('');
     setSubmitting(true);
     try {
-      await submitApplication(listing, profile, {
+      // The enquiry opens the conversation rather than sitting beside it, and
+      // the whole of that now happens in one place: submitApplication records
+      // the enquiry, opens the thread and posts the answers as its first
+      // message. This screen used to do the last two itself, which meant the
+      // opening message was written twice the moment the service learned to do
+      // it as well.
+      const conversationId = await submitApplication(listing, profile, {
         moveIn,
         leaseMonths,
         occupants: count,
         message,
       });
 
-      // The enquiry opens the conversation rather than sitting beside it.
-      //
-      // These used to be two separate acts: send an enquiry, and separately
-      // message the owner — which meant a tenant introduced themselves twice
-      // and an owner read the same person in two places. Now the answers become
-      // the opening message, and the thread continues from there.
-      const conversation = await ensureConversation(
-        listing,
-        profile,
-        listing.ownerName ?? 'The property owner',
-      );
-
-      await sendMessage(conversation, profile.uid, openingMessage(listing, count));
-
-      navigation.replace('Chat', { conversationId: conversation.id });
+      navigation.replace('Chat', { conversationId });
     } catch (err: any) {
       setError(
         err?.message?.includes('permission')

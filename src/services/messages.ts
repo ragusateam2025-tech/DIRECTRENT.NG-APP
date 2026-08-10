@@ -14,6 +14,7 @@ import {
 import { db, COLLECTIONS } from '../lib/firebase';
 import type {
   Application,
+  ApplicationStatus,
   CallOutcome,
   Conversation,
   Listing,
@@ -267,9 +268,27 @@ export async function ensureConversationFromApplication(
     lastMessageAt: Date.now(),
     lastSenderId: '',
     unread: { [application.landlordId]: 0, [application.tenantId]: 0 },
+    applicationStatus: application.status,
     createdAt: Date.now(),
   };
 
   await setDoc(ref, conversation);
   return conversation;
+}
+
+/**
+ * Mirrors an enquiry decision onto its thread.
+ *
+ * The application document remains the record; this is the copy the
+ * conversation list and the chat header read. Kept in step by calling it from
+ * the same place that changes the application, so there is one write path
+ * rather than two sources of truth drifting apart.
+ */
+export async function setConversationApplicationStatus(
+  conversationId: string,
+  status: ApplicationStatus,
+): Promise<void> {
+  await updateDoc(doc(db, COLLECTIONS.conversations, conversationId), {
+    applicationStatus: status,
+  });
 }
