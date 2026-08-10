@@ -43,8 +43,14 @@ service cloud.firestore {
       // oneself — and the write may touch nothing but `tour`. A staff account
       // therefore cannot change a rent, a description or an owner, which keeps
       // an operator's phone from being a master key to the catalogue.
+      // `.data.get('staff', false)` rather than `.data.staff`, which throws on
+      // any account that has never been given the field — which is every
+      // ordinary user. The request is denied either way, but a rule that
+      // errors is a rule nobody can reason about, and it would fail the same
+      // way for an auth account whose profile document does not exist yet.
       allow update: if request.auth != null
-                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.staff == true
+                    && get(/databases/$(database)/documents/users/$(request.auth.uid))
+                         .data.get('staff', false) == true
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tour']);
 
       // A temporary clause allowing updates to listings with no ownerId lived

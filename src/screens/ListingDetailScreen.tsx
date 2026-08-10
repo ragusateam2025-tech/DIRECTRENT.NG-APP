@@ -32,7 +32,6 @@ import {
   IconMessages,
   IconChevron,
   IconCall,
-  IconCheck,
   IconShare,
 } from '../components/icons/Icon';
 import { ensureConversation } from '../services/messages';

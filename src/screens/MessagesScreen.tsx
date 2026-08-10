@@ -102,6 +102,21 @@ export default function MessagesScreen() {
                   {item.listingTitle} · {item.listingArea}
                 </Text>
 
+                {/* Where the enquiry stands, for threads that began as one.
+                    This is why the status is copied onto the conversation: the
+                    list renders every thread at once, and reading an
+                    application document per row is exactly where that hurts.
+
+                    Pending is left unmarked. Every enquiry starts there, so a
+                    badge on all of them would say nothing and crowd out the
+                    two that mean something. */}
+                {item.applicationStatus === 'accepted' && (
+                  <Text style={[styles.status, styles.statusAccepted]}>Enquiry accepted</Text>
+                )}
+                {item.applicationStatus === 'declined' && (
+                  <Text style={styles.status}>Enquiry declined</Text>
+                )}
+
                 <Text
                   style={[styles.preview, unread > 0 && styles.previewUnread]}
                   numberOfLines={1}
@@ -165,6 +180,13 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.xs,
     marginTop: 2,
   },
+  status: {
+    color: colors.textMuted,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.xs,
+    marginTop: 2,
+  },
+  statusAccepted: { color: colors.success },
   preview: {
     color: colors.textMuted,
     fontFamily: typography.families.body,

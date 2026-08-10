@@ -97,7 +97,6 @@ export default function PhotosStep({
         const url = await uploadPhoto(
           ownerId,
           listingId,
-          current.length,
           asset.uri,
           asset.width ?? 1600,
           asset.height ?? 1200,
@@ -127,11 +126,15 @@ export default function PhotosStep({
         text: 'Remove',
         style: 'destructive',
         onPress: async () => {
+          // Captured before the array changes, because it is the only handle on
+          // the file. Read afterwards it would point at whichever photo shuffled
+          // into the gap.
+          const removedUrl = photos[index];
           const next = photos.filter((_, i) => i !== index);
           setPhotos(next);
           await onChange({ media: { ...draft.media, photos: next } });
-          if (deleteFromStorage) {
-            await deletePhoto(ownerId, listingId, index).catch(() => {});
+          if (deleteFromStorage && removedUrl) {
+            await deletePhoto(removedUrl).catch(() => {});
           }
         },
       },

@@ -18,6 +18,7 @@ import {
 } from '@react-native-firebase/storage';
 import { db, app, COLLECTIONS } from '../lib/firebase';
 import { compressPhoto } from '../lib/photos';
+import { photoStoragePath } from '../lib/photoPath';
 import type { Listing, LandlordListing, ListingStatus } from '../types';
 
 const storage = getStorage(app);
@@ -89,15 +90,13 @@ export async function saveListingProgress(
 export async function uploadPhoto(
   ownerId: string,
   listingId: string,
-  index: number,
   localUri: string,
   width: number,
   height: number,
   onProgress?: (fraction: number) => void,
 ): Promise<string> {
   const compressed = await compressPhoto(localUri, width, height);
-  const path = `listings/${ownerId}/${listingId}/${index}.jpg`;
-  const storageRef = ref(storage, path);
+  const storageRef = ref(storage, photoStoragePath(ownerId, listingId));
 
   const task = putFile(storageRef, compressed.uri, { contentType: 'image/jpeg' });
 
@@ -113,16 +112,24 @@ export async function uploadPhoto(
   return getDownloadURL(storageRef);
 }
 
-/** Removes a single uploaded photo. Missing objects are not an error. */
-export async function deletePhoto(
-  ownerId: string,
-  listingId: string,
-  index: number,
-): Promise<void> {
+/**
+ * Removes a single uploaded photo, identified by its own download URL.
+ *
+ * By URL rather than by position. Deleting `${index}.jpg` was only correct
+ * while no photo had ever been removed: afterwards the array positions and the
+ * file names disagree, so it deleted whatever happened to sit at that name —
+ * sometimes a file the listing was still showing.
+ *
+ * The URL names exactly one file and cannot drift. Failures stay silent because
+ * the caller has already removed the photo from the listing; an unreferenced
+ * file costs a little storage, where deleting the wrong one costs a photograph.
+ */
+export async function deletePhoto(downloadUrl: string): Promise<void> {
   try {
-    await deleteObject(ref(storage, `listings/${ownerId}/${listingId}/${index}.jpg`));
+    await deleteObject(ref(storage, downloadUrl));
   } catch {
-    // Already gone, which is the state we wanted.
+    // Already gone, or a URL this SDK cannot resolve back to a reference.
+    // Either way the listing no longer points at it.
   }
 }
 
