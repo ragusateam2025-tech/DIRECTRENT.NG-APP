@@ -56,61 +56,20 @@ export async function fetchListings(options: ListingQuery = {}): Promise<Listing
   );
 
   const snapshot = await getDocs(q);
-  const scoped = snapshot.docs.map(d => withOwner({ id: d.id, ...d.data() } as Listing));
 
-  // Merged, not used as a last resort.
-  //
-  // This first ran only when the scoped query came back empty, which held
-  // exactly until one properly tagged listing existed — at that point the
-  // fallback stopped firing and every untagged listing silently vanished from
-  // Browse. A migration shim has to cover the mixed state, which is the whole
-  // period it exists for, so both reads happen and the results are merged.
-  const legacy = await fetchLegacyListings(options, marketId);
-  const seen = new Set(scoped.map(l => l.id));
-
-  return [...scoped, ...legacy.filter(l => !seen.has(l.id))];
+  return snapshot.docs.map(d => withOwner({ id: d.id, ...d.data() } as Listing));
 }
 
-/**
- * TEMPORARY — delete once every listing document carries location.marketId.
- *
- * Listings written before the market field existed do not match the scoped
- * query, so they vanished from Browse entirely. Firestore cannot express
- * "field equals X or field is absent" in one query, so the unscoped read runs
- * alongside the scoped one on every call and the caller merges both, rather
- * than falling back only when the scoped read came back empty — that version
- * stopped firing the moment one tagged listing existed, and took the untagged
- * ones off Browse with it.
- *
- * Documents with no market are treated as belonging to the default market —
- * true by definition, since Lagos was the only market when they were written.
- *
- * The cost is one extra capped read per browse, paid on every call for as long
- * as any listing is missing its market, and it disappears the moment the
- * backfill runs.
- */
-async function fetchLegacyListings(
-  options: ListingQuery,
-  marketId: string,
-): Promise<Listing[]> {
-  const q = query(
-    collection(db, COLLECTIONS.listings),
-    where('status.listing', '==', 'active'),
-    limitTo(options.limit ?? PAGE_SIZE),
-  );
-
-  const snapshot = await getDocs(q);
-
-  return snapshot.docs
-    .map(d => withOwner({ id: d.id, ...d.data() } as Listing))
-    .filter(l => {
-      // Only documents with no market at all are adopted. One that names a
-      // different market is not legacy data — it belongs somewhere else.
-      const listingMarket = l.location?.marketId;
-      if (listingMarket && listingMarket !== marketId) return false;
-      return options.area ? l.location?.area === options.area : true;
-    });
-}
+// The legacy fallback lived here until 10 August 2026.
+//
+// It existed because listings written before the market registry had no
+// location.marketId and so matched no scoped query — they were invisible in
+// Browse. Every listing now carries one, so the second read it cost on every
+// browse bought nothing.
+//
+// Anything created from here on gets its market at the point of writing:
+// LocationStep sets marketId and state from the market registry before the
+// draft is ever saved.
 
 /**
  * Listings by id, for resolving a user's saved properties.

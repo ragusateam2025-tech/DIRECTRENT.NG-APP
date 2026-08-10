@@ -34,10 +34,51 @@ service cloud.firestore {
       allow update, delete: if request.auth != null
                             && resource.data.ownerId == request.auth.uid
                             && request.resource.data.ownerId == resource.data.ownerId;
+
+      // Directrent staff attach 360 tours to listings they did not create, so
+      // the ownership clause above can never cover them.
+      //
+      // Narrow on both sides. The writer must carry staff: true on their own
+      // user document — a flag no screen can set, so it cannot be granted to
+      // oneself — and the write may touch nothing but `tour`. A staff account
+      // therefore cannot change a rent, a description or an owner, which keeps
+      // an operator's phone from being a master key to the catalogue.
+      allow update: if request.auth != null
+                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.staff == true
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tour']);
+
+      // A temporary clause allowing updates to listings with no ownerId lived
+      // here until 10 August 2026, so the seeded documents could be given their
+      // market, state and owner. The backfill ran; every listing now has an
+      // owner, so the clause matched nothing and has been removed.
     }
 
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      // A person owns their profile — name, phone, picture, role — and may
+      // write all of it. With one exception.
+      //
+      // `staff` is not a profile field, it is a permission: it unlocks the tour
+      // queue, which can attach and remove tours on properties the holder does
+      // not own. `allow write` covered every field, so any signed-in user could
+      // have granted it to themselves with a direct SDK call. No screen offered
+      // it, which is not the same thing as nobody being able to do it.
+      //
+      // So the field is excluded on both paths — it cannot be smuggled in at
+      // signup, and it cannot be added later. Granting it is a deliberate act
+      // performed in the Firebase console, which is not subject to these rules
+      // and is exactly where a permission of this kind should be handed out.
+      allow create: if request.auth != null
+                    && request.auth.uid == userId
+                    && !('staff' in request.resource.data);
+
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && !request.resource.data.diff(resource.data)
+                         .affectedKeys().hasAny(['staff']);
+
+      allow delete: if request.auth != null && request.auth.uid == userId;
 
       match /saved/{listingId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;

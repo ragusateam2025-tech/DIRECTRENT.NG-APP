@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, typography, spacing, radius } from '../theme/tokens';
 import Button from '../components/Button';
@@ -22,6 +23,7 @@ import {
   normaliseNigerianPhone,
 } from '../lib/phone';
 import { useAuth, friendlyAuthError } from '../context/AuthContext';
+import { backfillListings } from '../../scripts/backfill';
 import type { UserRole } from '../types';
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -33,9 +35,11 @@ const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 export default function ProfileScreen() {
+  const navigation = useNavigation<any>();
   const { profile, logOut, setRole, updateDetails, changePassword } = useAuth();
   const [editing, setEditing] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
   const [avatarError, setAvatarError] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -162,6 +166,52 @@ export default function ProfileScreen() {
     setNameError('');
     setPhoneError('');
     setEditing(true);
+  }
+
+  /**
+   * Adds the fields the listings collection grew after it was written.
+   *
+   * Confirmed first, because it writes to the live database, and reported in
+   * full afterwards — including the documents it deliberately left alone, so
+   * "nothing happened" and "nothing needed to happen" stay distinguishable.
+   */
+  async function handleBackfill() {
+    if (backfilling) return;
+
+    Alert.alert(
+      'Backfill listings?',
+      'Adds market, state, owner and owner-occupancy to listings missing them. Existing values are never overwritten.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Run it',
+          onPress: async () => {
+            setBackfilling(true);
+            try {
+              const report = await backfillListings();
+              const lines = [
+                `Scanned ${report.scanned}.`,
+                `Updated ${report.updated}.`,
+                `Already complete: ${report.untouched}.`,
+              ];
+              if (report.needsOccupancy.length > 0) {
+                lines.push(
+                  `\nNot demo listings, so occupancy was left unanswered: ${report.needsOccupancy.join(', ')}.`,
+                );
+              }
+              Alert.alert('Backfill done', lines.join(' '));
+            } catch (error: any) {
+              // Loudly. A half-finished backfill leaves the collection in the
+              // mixed state the migration shim exists to cover, and silence
+              // here would look identical to success.
+              Alert.alert('Backfill failed', error?.message ?? String(error));
+            } finally {
+              setBackfilling(false);
+            }
+          },
+        },
+      ],
+    );
   }
 
   async function handleSave() {
@@ -345,6 +395,40 @@ export default function ProfileScreen() {
         )}
 
         {!!passwordDone && <Text style={styles.passwordDone}>{passwordDone}</Text>}
+
+        {/* Staff only. Hidden entirely rather than shown disabled — a control
+            a customer can see but never use is a support question. */}
+        {!!profile?.staff && (
+          <View style={styles.logout}>
+            <Button
+              label="360 tour queue"
+              variant="secondary"
+              onPress={() => navigation.navigate('TourQueue')}
+            />
+          </View>
+        )}
+
+        {/*
+          Development only, and temporary.
+
+          The listings collection predates three fields the app now depends on,
+          and Firestore has no command to patch a document — the alternative is
+          editing each one by hand in the console. __DEV__ is false in any
+          release build, so this cannot reach a real user's phone.
+
+          Delete this block, and scripts/backfill.ts, once Browse shows every
+          listing with its market and its owner.
+        */}
+        {__DEV__ && (
+          <View style={styles.logout}>
+            <Button
+              label="Backfill listings (dev)"
+              variant="secondary"
+              loading={backfilling}
+              onPress={handleBackfill}
+            />
+          </View>
+        )}
 
         <View style={styles.logout}>
           <Button label="Log out" onPress={logOut} />
