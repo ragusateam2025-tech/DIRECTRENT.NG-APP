@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -10,8 +10,13 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import type { ImageSourcePropType } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
+import { useReducedMotion } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, typography, spacing, radius } from '../theme/tokens';
+
+/** Matches the Browse cards, so the two do not feel like different features. */
+const HOLD_MS = 3600;
 
 interface PhotoGalleryProps {
   photos: ImageSourcePropType[];
@@ -45,6 +50,33 @@ export default function PhotoGallery({
   // window minus that padding on both sides — not the full window width.
   const pageWidth = windowWidth - spacing.lg * 2;
 
+  /**
+   * Advances the gallery on its own, the way the cards on Browse do.
+   *
+   * Stops for good the first time the user swipes. Someone who has taken hold
+   * of the gallery is looking at a particular photo, and sliding it out from
+   * under them to keep a timer happy is the version of this feature everybody
+   * hates. It never restarts — that would just delay the same problem.
+   */
+  const listRef = useRef<FlatList<ImageSourcePropType>>(null);
+  const [taken, setTaken] = useState(false);
+  const isFocused = useIsFocused();
+  const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (taken || !isFocused || reduceMotion || photos.length < 2 || pageWidth <= 0) return;
+
+    const id = setInterval(() => {
+      setIndex(current => {
+        const next = (current + 1) % photos.length;
+        listRef.current?.scrollToOffset({ offset: next * pageWidth, animated: true });
+        return next;
+      });
+    }, HOLD_MS);
+
+    return () => clearInterval(id);
+  }, [taken, isFocused, reduceMotion, photos.length, pageWidth]);
+
   if (photos.length === 0) {
     return (
       <View style={[styles.wrapper, { height }]}>
@@ -63,11 +95,14 @@ export default function PhotoGallery({
   return (
     <View style={[styles.wrapper, { height }]}>
       <FlatList
+        ref={listRef}
         data={photos}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={handleScroll}
+        // The moment a finger lands, the gallery belongs to the user.
+        onScrollBeginDrag={() => setTaken(true)}
         keyExtractor={(_, i) => String(i)}
         getItemLayout={(_, i) => ({
           length: pageWidth,
