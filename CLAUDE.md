@@ -119,6 +119,30 @@ listings live in Firestore (not in code — `SEED_LISTINGS` is imported nowhere)
 - **Call signalling** — Firestore-based, WebRTC-ready (`src/services/calls.ts`)
 - **Out-of-app calling** — opens the phone dialler, gated on owner consent
 
+### ✅ Built 3–10 August
+
+- **Facilities** — grouped by how a renter reads them (`src/data/amenities.ts`),
+  36 drawn icons, each animating once on arrival. `AMENITY_ALIASES` maps older
+  wording onto the catalogue, so "Backup generator" gets the generator icon and
+  the right group. Aliasing decides grouping and iconography only — it never
+  rewrites what the owner typed.
+- **Owner occupancy** — "Owner lives here", compulsory before publishing, and
+  filterable Yes/No/Any. First-order question for Nigerian renters.
+- **360 tours, end to end** — provider-agnostic model (`tour.embedUrl`, so the
+  host is replaceable), a WebView tour screen pinned to the tour's own host,
+  screenshot blocking while it is open, an owner request checkbox in the photos
+  step, and a staff queue at `src/screens/staff/TourQueueScreen.tsx`. **No tour
+  content exists yet** — needs a Kuula account and a link pasted into the queue.
+- **Enquiries merged into Messages** — an enquiry now opens a conversation and
+  posts its answers as the first message; accept/decline live in the thread.
+  The Enquiries tab and screen are gone. Four tabs, not five.
+- **Email checks** — format plus a disposable-domain list (`src/lib/email.ts`),
+  and Firebase email verification gating enquiries and publishing.
+- **Auto-cycling photos** — Browse cards and the detail gallery cross-fade
+  through every uploaded photo.
+- **Security-rules tests** — 29 cases against the Firestore emulator,
+  `npm run test:rules`. See §9.17.
+
 ### ⏳ Known gaps — read before promising anything
 
 - **Editing a published listing is impossible.** Only drafts reopen in the
@@ -127,7 +151,9 @@ listings live in Firestore (not in code — `SEED_LISTINGS` is imported nowhere)
 - **In-app voice is half-built.** Signalling is done; `react-native-webrtc`, a
   call screen, a native rebuild and a TURN relay are not. Without TURN, a
   large share of Nigerian mobile-to-mobile calls connect to silence.
-- **Live tour** is a "coming soon" banner only.
+- **No 360 tour content.** The whole path is built; nothing has been shot.
+  Kuula free tier chosen for testing — its tour URLs are public, which no
+  client-side protection changes.
 - **No push notifications.** Messaging works but nobody is told a message arrived.
 - **No BVN/NIN verification, no Paystack.** Both need credentials.
 - **Listing review was removed.** Publishing goes straight to `active` because
@@ -153,11 +179,17 @@ scoped in the MASTER_PRD and FEATURE_SPEC documents.
 - **Claude Code:** Native Windows installer at `C:\Users\Ololade Olaniran\.local\bin\claude.exe`
 - **Test device:** Samsung SM-A4260, 720x1600 (USB debugging enabled)
 - **Firebase project:** `directrent-prod` — Firestore and Storage both enabled
+- **Firebase CLI:** signed in as `ololade.joseph1@gmail.com` since 10 August.
+  Deploy rules with `npx firebase deploy --only firestore:rules`, which compiles
+  them first. **Verify afterwards by reading the live rules back** — see §9.21.
 - **Rules:** `firestore.rules` and `storage.rules` live in the repo root and are
-  published. They are NOT deployed by any tooling — publishing means pasting
-  them into the console by hand, so a change here is not live until someone does.
+  the source of truth. `firestore.rules` was last deployed 10 August. **Note
+  `storage.rules` is still console-published by hand** — nothing deploys it.
 - **Git remote:** `https://github.com/ragusateam2025-tech/DIRECTRENT.NG-APP`
-- **Tests:** `npm test` — Jest, in `__tests__/` at the repo root (not in `src/`)
+- **Tests:**
+  - `npm test` — Jest under jest-expo, in `__tests__/` at the repo root
+  - `npm run test:rules` — security rules against the Firestore emulator; starts
+    and stops the emulator itself, needs no account and no network
 
 ---
 
@@ -212,7 +244,12 @@ Listed so we don't relearn the same lessons:
 13. **Writing `undefined` to Firestore** → rejected outright as "Unsupported field value". Strip undefined keys, or write an explicit `null` when the intent is to clear a field.
 14. **Assuming a document has the fields its TypeScript type promises** → the seeded listings had no `ownerId` at all, which surfaced only when the first write needed it. Firestore does not validate shape; the type is a hope, not a guarantee.
 15. **Verifying only with `tsc` and `npm test`** → every real bug found on 30–31 July lived in code that talks to Firestore, and the tests touch none of it. Run the app on the device before claiming anything works.
-16. **Writing rules with a wildcard glued to text** — `match /{side}Candidates/{id}` → does not parse. A path segment is either a literal or a whole wildcard. Nothing in the repo validates rules; the console is the first checker.
+16. **Writing rules with a wildcard glued to text** — `match /{side}Candidates/{id}` → does not parse. A path segment is either a literal or a whole wildcard. **Superseded by 17:** rules are now validated and deployed by the CLI, which compiles them before uploading.
+17. **Publishing rules by pasting into the console** → nothing validated them, so a syntax error reached the user as the first check. Now: `npx firebase deploy --only firestore:rules`, which compiles first, and `npm run test:rules` for what they actually permit. `firestore.rules` in the repo is the source of truth.
+18. **A sudden power cut corrupts caches, not just files** → on 3 August the laptop died mid-build and left two *build caches* zero-filled: Gradle's `android/app/.cxx/**/android_gradle_build.json` (4,361 bytes of nothing → `MalformedJsonException ... line 1 column 1`) and Metro's file map (`Unable to deserialize cloned data`, then `TypeError: dependencies is not iterable` at 99% of a bundle). Windows had recorded each file's new size before the data reached the disk. **Neither error names the cause.** Delete the cache and rebuild: `android/app/.cxx/Debug` for Gradle, and `expo start --clear` plus `%TEMP%\metro-cache` for Metro.
+19. **The ReadOnly-directory problem is not confined to `android/`** → on 10 August `npm install` failed with `EPERM: operation not permitted, rmdir` because **911 directories under `node_modules\@firebase` carried the ReadOnly attribute**. Same fix, wider net: `attrib -R "<dir>\*" /S /D`. Also stop Metro first — it holds handles in `node_modules` and each breaks the other.
+20. **Clearing ReadOnly *before* a Gradle build is not enough** → the flag reappears on directories Gradle creates *during* the build, so it can still fail partway through (`:app:generateDebugResValues`). Clear it again and re-run; the build resumes incrementally.
+21. **Trusting a deploy tool's "success"** → the Firebase MCP `firebase_deploy` returned `{"status":"success"}` while the live rules were unchanged. Only reading the rules back caught it. Verify the deployed state, not the report.
 
 ---
 
@@ -231,34 +268,51 @@ The user is a non-technical founder. They are intelligent and detail-oriented bu
 
 ## 11. WHERE THINGS STAND
 
+### The deadline
+**Investor meeting 29 August 2026.** Scope should be frozen well before it, and
+nothing new should land after 26 August. A demo that crashes costs more than a
+missing feature.
+
+### The listings backfill is DONE
+Completed 10 August. All 8 listing documents now carry `ownerId`,
+`location.marketId`, `location.state` and `ownerOccupied`. The legacy fallback
+in `src/services/listings.ts` and the temporary rule that allowed it have both
+been removed. Browse does one read per load again.
+
+The collection holds 6 seeded listings (owner `demo`) and 2 created through the
+app by test accounts. **All accounts in `users` are test accounts** — there is
+no account for the founder's own email.
+
 ### Verified on the device
 Browse, filters, listing detail with the photo gallery, saved properties, the
-icon set, the live tour banner, profile editing, and profile picture upload.
+icon set, profile editing, and profile picture upload — all **as of 31 July**.
 
-### Built but never seen working end to end
-**Sending a message.** Enquiry → conversation → chat has never once completed,
-because the six seeded listings are missing `ownerId`. The Message and Call
-buttons hide themselves when it is absent, so the symptom is silent.
+### Built but NOT verified on a device
+Everything from 3–10 August: facilities and their icons, owner occupancy and
+its filter, the 360 tour screen and staff queue, the Enquiries/Messages merge,
+email checks and verification, auto-cycling photos. `tsc` is clean and 144
+tests pass, but **§9.15 still applies** — none of it has run on hardware.
 
-### The blocking task
-In the Firebase console, on each of the six documents in `listings`:
+The dev client on the phone is current as of the 10 August build
+(`react-native-webview`, `expo-screen-capture`). Anything JS since then arrives
+over Metro; a new native module needs another rebuild.
 
-| Field | Where | Value |
-|---|---|---|
-| `ownerId` | top level | `demo` |
-| `marketId` | inside `location` | `lagos` |
-| `state` | inside `location` | `Lagos` |
-
-Then force-stop the app. Once `marketId` is on every document, delete the
-legacy fallback in `src/services/listings.ts` — it is marked for removal.
+### To open the staff tour queue
+1. Sign up in the app with the account that will be staff
+2. Set `staff: true` on that `users/{uid}` document — **console or CLI only**,
+   the rules now forbid the app from setting it in either direction
+3. Force-stop and reopen; the button appears in Profile
 
 ### Recommended next work, in order
-1. **Emulator-backed tests for the Firestore write paths.** Every bug found on
-   30–31 July lived there, and nothing in the suite covers it.
-2. **Editing a published listing** — see the warning in section 5.
-3. **Push notifications** — messaging is weak without them.
-4. **WebRTC native layer** — last, and only after the write paths are trusted.
+1. **Verify the 3–10 August work on a device.** The largest risk before the
+   29th is the volume of unverified code, not missing features.
+2. **Editing a published listing** — see the warning in section 5. The obvious
+   investor question, and the honest answer today is "you can't".
+3. **One real 360 tour**, shot and attached, so the differentiator is live
+   rather than described.
+4. **Push notifications** — messaging is weak without them.
+5. **WebRTC native layer** — last.
 
 ---
 
-*Last updated: July 31, 2026 — messaging, calling, profiles and the market registry built; blocked on the listings backfill*
+*Last updated: August 10, 2026 — facilities, owner occupancy, 360 tours, the Enquiries/Messages merge and email verification built; listings backfill complete; rules now deployed and tested by CLI; nothing since 31 July verified on a device; investor meeting 29 August*
