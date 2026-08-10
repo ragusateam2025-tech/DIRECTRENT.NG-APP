@@ -7,10 +7,12 @@ import {
   updateProfile,
   updatePassword,
   reauthenticateWithCredential,
+  sendEmailVerification,
   EmailAuthProvider,
 } from '@react-native-firebase/auth';
 import { doc, getDoc, getDocFromServer, setDoc } from '@react-native-firebase/firestore';
 import { auth, db, COLLECTIONS } from '../lib/firebase';
+import { emailProblem, normaliseEmail } from '../lib/email';
 import type { UserProfile, UserRole } from '../types';
 
 interface AuthContextValue {
@@ -36,6 +38,25 @@ interface AuthContextValue {
    * account.
    */
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  /**
+   * Whether the address on this account has been confirmed by opening the link.
+   *
+   * The only thing that proves an address is real and belongs to this person.
+   * Format checks and the disposable-domain list run at signup and catch typos
+   * and throwaway inboxes, but `asdfgh@gmail.com` passes both and belongs to
+   * nobody — this is what settles it.
+   */
+  emailVerified: boolean;
+  /** Sends the confirmation link again. */
+  resendVerification: () => Promise<void>;
+  /**
+   * Re-reads the account from Firebase to pick up a link opened elsewhere.
+   *
+   * The link is opened in a browser, often on another device, and nothing tells
+   * the app. Without this the user confirms their address and the app carries on
+   * insisting they have not.
+   */
+  refreshVerification: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -71,6 +92,11 @@ export function friendlyAuthError(code: string): string {
       return 'Enter your current password.';
     case 'app/database-unreachable':
       return 'Account created, but the database rejected it. Check your Firestore security rules.';
+    case 'app/email-rejected':
+      // A backstop. SignUpScreen runs the same check first and shows the
+      // specific reason, so reaching this means signUp was called from
+      // somewhere that did not — worth being clear rather than generic.
+      return 'That email address cannot be used. Use a permanent address you can open.';
     default:
       return 'Something went wrong. Please try again.';
   }
@@ -79,14 +105,37 @@ export function friendlyAuthError(code: string): string {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [initialising, setInitialising] = useState(true);
+  const [emailVerified, setEmailVerified] = useState(false);
+
+  async function resendVerification() {
+    const user = auth.currentUser;
+    if (!user) throw new Error('You are not signed in.');
+    await sendEmailVerification(user);
+  }
+
+  async function refreshVerification(): Promise<boolean> {
+    const user = auth.currentUser;
+    if (!user) return false;
+
+    // reload() pulls the account fresh from Firebase. `user.emailVerified` is
+    // a cached value from sign-in time and never changes on its own, so
+    // without this the app would insist the address is unconfirmed forever.
+    await user.reload();
+    const verified = auth.currentUser?.emailVerified ?? false;
+    setEmailVerified(verified);
+    return verified;
+  }
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async user => {
       if (!user) {
         setProfile(null);
+        setEmailVerified(false);
         setInitialising(false);
         return;
       }
+
+      setEmailVerified(user.emailVerified);
 
       try {
         const ref = doc(db, COLLECTIONS.users, user.uid);
@@ -127,13 +176,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function signUp(fullName: string, email: string, password: string) {
-    const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    // Normalised before it reaches Firebase, so the same person cannot end up
+    // with two accounts by capitalising differently on a different day.
+    const address = normaliseEmail(email);
+
+    const problem = emailProblem(address);
+    if (problem) {
+      const error: any = new Error(problem);
+      error.code = 'app/email-rejected';
+      throw error;
+    }
+
+    const credential = await createUserWithEmailAndPassword(auth, address, password);
     await updateProfile(credential.user, { displayName: fullName.trim() });
 
     const fresh: UserProfile = {
       uid: credential.user.uid,
       fullName: fullName.trim(),
-      email: email.trim(),
+      email: address,
       role: 'tenant',
       roleChosen: false,
       createdAt: Date.now(),
@@ -155,6 +215,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     setProfile(fresh);
+
+    // Sent last, and allowed to fail quietly.
+    //
+    // The account exists and works by this point. If the mail cannot go out —
+    // a network blip, a quota — failing the whole signup would throw away a
+    // working account over a message that can be resent from Profile at any
+    // time. The consequence of it not arriving is a prompt to resend, not a
+    // locked-out user.
+    sendEmailVerification(credential.user).catch(() => {});
   }
 
   async function logIn(email: string, password: string) {
@@ -229,6 +298,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setRole,
         updateDetails,
         changePassword,
+        emailVerified,
+        resendVerification,
+        refreshVerification,
       }}
     >
       {children}

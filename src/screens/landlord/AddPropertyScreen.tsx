@@ -28,7 +28,7 @@ const STEPS = ['Basics', 'Location', 'Photos', 'Pricing', 'Details'] as const;
 export type DraftListing = Partial<Listing>;
 
 export default function AddPropertyScreen() {
-  const { profile } = useAuth();
+  const { profile, refreshVerification, resendVerification } = useAuth();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const existingDraftId: string | undefined = route.params?.draftId;
@@ -103,7 +103,33 @@ export default function AddPropertyScreen() {
 
   async function handlePublish(patch: DraftListing) {
     const merged = { ...draft, ...patch };
+    // Saved before the gate, not after. Someone stopped here has done the whole
+    // wizard, and losing that work because their email is unconfirmed would be
+    // a far worse offence than the unconfirmed email.
     await persist(patch);
+
+    // A published listing is a public claim about a real property, carrying a
+    // name and a phone number. Confirming the address is the one check standing
+    // between the catalogue and anyone who fancies inventing a flat.
+    const verified = await refreshVerification();
+    if (!verified) {
+      Alert.alert(
+        'Confirm your email first',
+        'Your listing is saved as a draft. Open the link we emailed you when you signed up, then publish it from My properties.',
+        [
+          { text: 'OK', style: 'cancel' },
+          {
+            text: 'Send it again',
+            onPress: () => {
+              resendVerification()
+                .then(() => Alert.alert('Sent', 'Check your email for the confirmation link.'))
+                .catch(e => Alert.alert('Could not send it', e?.message ?? String(e)));
+            },
+          },
+        ],
+      );
+      return;
+    }
 
     setBusy(true);
     try {
@@ -112,9 +138,13 @@ export default function AddPropertyScreen() {
         Alert.alert('Not ready to publish', result.reason ?? 'Something is missing.');
         return;
       }
+      // Says what actually happens. publishListing sets the listing straight to
+      // `active` — review was removed because there is no admin panel to review
+      // from — so telling an owner to wait for an approval that never comes
+      // left them watching for a state change that had already happened.
       Alert.alert(
-        'Submitted for review',
-        'Your property has been sent for approval. It appears to tenants once approved.',
+        'Your property is live',
+        'Tenants can find it in Browse now. You can see it under My properties.',
         [{ text: 'Done', onPress: () => navigation.goBack() }],
       );
     } catch (err: any) {

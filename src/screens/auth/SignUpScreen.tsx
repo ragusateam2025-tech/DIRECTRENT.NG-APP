@@ -6,6 +6,7 @@ import { colors, typography, spacing } from '../../theme/tokens';
 import Button from '../../components/Button';
 import TextField from '../../components/TextField';
 import { useAuth, friendlyAuthError } from '../../context/AuthContext';
+import { emailProblem } from '../../lib/email';
 import type { AuthStackParams } from '../../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<AuthStackParams, 'SignUp'>;
@@ -25,8 +26,12 @@ export default function SignUpScreen({ navigation }: Props) {
       setError('Please enter your full name.');
       return;
     }
-    if (!email.includes('@')) {
-      setError('Please enter a valid email address.');
+    // Checked here as well as in signUp, so the message appears before an
+    // account attempt rather than after one. signUp keeps its own check
+    // because it is reachable from anywhere and a screen is not a guarantee.
+    const emailError = emailProblem(email);
+    if (emailError) {
+      setError(emailError);
       return;
     }
     if (password.length < 6) {
