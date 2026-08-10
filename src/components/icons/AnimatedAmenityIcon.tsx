@@ -130,6 +130,11 @@ export default function AnimatedAmenityIcon({
     ],
   }));
 
+  // Nothing drawn for wording the catalogue does not know. Every hook above has
+  // already run, so bailing out here keeps hook order stable across rows that
+  // do have an icon.
+  if (!Glyph) return null;
+
   return (
     <Animated.View style={style}>
       <Glyph size={size} color={color} />

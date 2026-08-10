@@ -1,6 +1,7 @@
 import React from 'react';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { colors } from '../../theme/tokens';
+import { canonicalAmenity } from '../../data/amenities';
 
 /**
  * Facility icons.
@@ -577,6 +578,23 @@ export function IconGroupOutdoor({ size = 20, color = colors.accentGold }: Ameni
 type IconComponent = React.ComponentType<AmenityIconProps>;
 
 /**
+ * Laundry space — a line with two garments, sagging under the weight.
+ *
+ * Floats rather than standing on the ground line: it is a space inside the
+ * property, not a structure on the plot. The sag is the whole drawing — a
+ * straight line with rectangles on it reads as shelving.
+ */
+export function IconLaundry({ size = 20, color = colors.accentGold }: AmenityIconProps) {
+  return (
+    <Svg {...base(size, color)}>
+      <Path d="M3 6.5Q12 9 21 6.5" />
+      <Rect x="6.4" y="8.4" width="4" height="6.2" rx="1" />
+      <Rect x="13.6" y="9.2" width="4" height="7.4" rx="1" />
+    </Svg>
+  );
+}
+
+/**
  * Every facility in the catalogue now has its own drawing.
  *
  * The group marks below stay as the fallback, for two reasons: a listing
@@ -628,6 +646,7 @@ const BY_AMENITY: Record<string, IconComponent> = {
   'Jogging track': IconJoggingTrack,
   'Multi-purpose hall': IconHall,
   'Serviced compound': IconServicedCompound,
+  'Laundry space': IconLaundry,
 };
 
 const BY_GROUP: Record<string, IconComponent> = {
@@ -635,10 +654,22 @@ const BY_GROUP: Record<string, IconComponent> = {
   'Security & Safety': IconGroupSecurity,
   'Interior & Finishing': IconGroupInterior,
   'Outdoor & Communal': IconGroupOutdoor,
-  Other: IconGroupOutdoor,
 };
 
-/** Resolves the best icon available: the facility's own, then its group's. */
-export function amenityIcon(amenity: string, group: string): IconComponent {
-  return BY_AMENITY[amenity] ?? BY_GROUP[group] ?? IconGroupOutdoor;
+/**
+ * Resolves the best icon available: the facility's own, then its group's mark.
+ *
+ * Older wording is aliased to the catalogue first, so "Backup generator" gets
+ * the generator and "Parking for two" gets the car park. Without that step
+ * every synonym fell through to the outdoor group mark, and a renter saw a
+ * generator, a borehole and a parking space all wearing the same tree.
+ *
+ * Returns null only for wording that resolves to nothing at all. An icon that
+ * does not mean what it sits beside is worse than no icon — it reads as a
+ * mistake and makes the whole set look arbitrary — so anything genuinely
+ * unrecognised renders as text alone rather than borrowing a picture.
+ */
+export function amenityIcon(amenity: string, group: string): IconComponent | null {
+  const canonical = canonicalAmenity(amenity);
+  return BY_AMENITY[amenity] ?? BY_AMENITY[canonical] ?? BY_GROUP[group] ?? null;
 }

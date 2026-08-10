@@ -56,6 +56,7 @@ export const AMENITY_GROUPS: AmenityGroup[] = [
       'Air conditioning',
       'Furnished',
       'Guest toilet',
+      'Laundry space',
     ],
   },
   {
@@ -82,23 +83,87 @@ export const AMENITY_GROUPS: AmenityGroup[] = [
 export const ALL_AMENITIES: string[] = AMENITY_GROUPS.flatMap(g => g.items);
 
 /**
+ * Older wording, mapped to the catalogue entry that means the same thing.
+ *
+ * Listings written before this catalogue say "Backup generator" where it says
+ * "Standby generator", and "Parking for two" where it says "Car park". They are
+ * the same facility described by a different hand, but a literal comparison
+ * calls them unknown — so they fell into "Other", a bucket with no group and no
+ * icon, and a renter saw a generator listed as though nobody knew what it was.
+ *
+ * Aliasing decides two things: which group an item belongs to, and which icon
+ * it gets. It deliberately does NOT change the words on screen — the owner's
+ * own phrasing is what the tenant reads, because rewriting what someone wrote
+ * about their property to match our vocabulary is not ours to do.
+ */
+export const AMENITY_ALIASES: Record<string, string> = {
+  // Power & Utilities
+  'Backup generator': 'Standby generator',
+  Generator: 'Standby generator',
+  'Borehole water': 'Borehole',
+  'Water treatment': 'Treated water',
+  'Constant power': '24/7 power supply',
+
+  // Security & Safety
+  '24-hour security': 'Security / gateman',
+  '24 hour security': 'Security / gateman',
+  Gateman: 'Security / gateman',
+  CCTV: 'CCTV surveillance',
+
+  // Interior & Finishing
+  'Fitted wardrobes': 'Built-in wardrobes',
+  Wardrobes: 'Built-in wardrobes',
+  'En-suite bathroom': 'En-suite bedrooms',
+  'Both rooms en-suite': 'En-suite bedrooms',
+  'All rooms en-suite': 'En-suite bedrooms',
+  'POP ceilings': 'POP ceiling',
+
+  // Outdoor & Communal
+  Parking: 'Car park',
+  'Parking space': 'Car park',
+  'Dedicated parking': 'Car park',
+  'Parking for two': 'Car park',
+  'Car parking': 'Car park',
+};
+
+/** The catalogue name for a facility, whatever wording the listing used. */
+export function canonicalAmenity(amenity: string): string {
+  return AMENITY_ALIASES[amenity] ?? amenity;
+}
+
+/**
  * Splits a listing's amenities into the groups it actually has, dropping empty
  * ones so a property with no communal facilities shows no communal heading.
  *
  * Anything unrecognised is kept under "Other" rather than silently discarded:
  * listings created before this catalogue existed carry wording that is no
  * longer in it, and dropping those would quietly delete what an owner wrote.
+ *
+ * Entries that are blank or only whitespace are the exception, and they are
+ * dropped. There is nothing for a renter to read and nothing for an icon to
+ * mean, so a nameless amenity produced a row that was pure noise.
  */
 export function groupAmenities(
   amenities: string[],
 ): Array<{ label: string; items: string[] }> {
+  const named = amenities.map(a => a.trim()).filter(a => a.length > 0);
+
+  // The owner's wording is kept for display; the catalogue name it resolves to
+  // decides the group and the icon.
+  const pairs = named.map(label => ({ label, canonical: canonicalAmenity(label) }));
+
   const grouped = AMENITY_GROUPS.map(group => ({
     label: group.label,
-    items: group.items.filter(item => amenities.includes(item)),
+    // Iterating the catalogue rather than the listing keeps each group in the
+    // order the catalogue defines, which is roughly how much the facility
+    // decides a Lagos rental.
+    items: group.items.flatMap(item =>
+      pairs.filter(p => p.canonical === item).map(p => p.label),
+    ),
   })).filter(group => group.items.length > 0);
 
   const known = new Set(ALL_AMENITIES);
-  const other = amenities.filter(a => !known.has(a));
+  const other = pairs.filter(p => !known.has(p.canonical)).map(p => p.label);
   if (other.length > 0) grouped.push({ label: 'Other', items: other });
 
   return grouped;
