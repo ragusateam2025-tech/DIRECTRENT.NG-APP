@@ -67,6 +67,17 @@ export interface Conversation {
   lastSenderId: string;
   /** Unread count per participant uid. Cleared when that user opens the thread. */
   unread: Record<string, number>;
+  /**
+   * Status of the enquiry this thread opened with.
+   *
+   * Denormalised onto the conversation so the list can show where each one
+   * stands without reading an application document per row — the list is the
+   * one screen that renders every thread at once, and that is exactly where
+   * a per-row read hurts.
+   *
+   * Absent on threads that began as a plain message rather than an enquiry.
+   */
+  applicationStatus?: ApplicationStatus;
   createdAt: number;
 }
 
@@ -159,6 +170,18 @@ export interface UserProfile {
   role: UserRole;
   /** False until the user passes the role-selection screen. */
   roleChosen: boolean;
+  /**
+   * A Directrent employee, not a customer.
+   *
+   * Set by hand on the user document — there is no screen that grants it and
+   * there should not be, because the whole point is that it cannot be
+   * self-assigned. It unlocks the tour queue and nothing else.
+   *
+   * Absent on every normal account, which is the safe default: a missing field
+   * is falsy, so forgetting to set it locks someone out rather than letting
+   * them in.
+   */
+  staff?: boolean;
   createdAt: number;
 }
 
@@ -187,6 +210,34 @@ export type LandlordListing = Partial<Omit<Listing, 'id' | 'ownerId' | 'status'>
   ownerId: string;
   status: { listing: ListingStatus };
 };
+
+/**
+ * Who hosts the panoramas behind a 360 tour.
+ *
+ * The point of naming the host is that the app never has to care which one it
+ * is. Everything the tour screen needs is `embedUrl` — it loads that URL in a
+ * WebView and stops thinking. Moving off Kuula to panoramas we host ourselves
+ * means writing a different provider and a different URL onto the documents;
+ * no screen, no navigation and no type changes downstream.
+ *
+ * That is deliberate. Kuula is a test, chosen because it costs nothing to try,
+ * and a test we cannot walk away from is not a test.
+ */
+export type TourProvider = 'kuula' | 'directrent';
+
+export interface ListingTour {
+  provider: TourProvider;
+  /**
+   * The URL the viewer loads, embedded in the app rather than opened in a
+   * browser — a tenant handed to a browser tab at the moment they are most
+   * interested is a tenant who may not come back.
+   */
+  embedUrl: string;
+  /** ISO date of the shoot, for judging whether a tour still reflects the property. */
+  capturedAt?: string;
+  /** uid of the staff member who attached it, so a bad link has an author. */
+  attachedBy?: string;
+}
 
 export interface Listing {
   id: string;
@@ -226,6 +277,22 @@ export interface Listing {
    * Absent on listings created before the field existed; shown only when set.
    */
   ownerOccupied?: boolean;
+  /**
+   * The 360 tour, when one has been captured.
+   *
+   * Null and absent both mean no tour, and the no-tour path stays the default —
+   * most listings will never have one.
+   */
+  tour?: ListingTour | null;
+  /**
+   * The owner asked for a Directrent capture and is waiting for a visit.
+   *
+   * Separate from `tour` because they are different states with different
+   * audiences: this one is a job for operations, and it is what the staff
+   * screen lists. It stays true after capture, so the request is still visible
+   * as history rather than vanishing the moment the tour lands.
+   */
+  tourRequested?: boolean;
   basicInfo: {
     title: string;
     propertyType: PropertyType;

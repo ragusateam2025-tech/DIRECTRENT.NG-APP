@@ -5,20 +5,20 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { colors, typography } from '../theme/tokens';
 import BrowseScreen from '../screens/BrowseScreen';
 import SavedScreen from '../screens/SavedScreen';
-import EnquiriesScreen from '../screens/EnquiriesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ListingDetailScreen from '../screens/ListingDetailScreen';
 import ApplyScreen from '../screens/ApplyScreen';
 import MyPropertiesScreen from '../screens/landlord/MyPropertiesScreen';
 import AddPropertyScreen from '../screens/landlord/AddPropertyScreen';
 import MessagesScreen from '../screens/MessagesScreen';
+import TourScreen from '../screens/TourScreen';
+import TourQueueScreen from '../screens/staff/TourQueueScreen';
 import ChatScreen from '../screens/ChatScreen';
 import { useAuth } from '../context/AuthContext';
 import {
   IconBrowse,
   IconListings,
   IconSaved,
-  IconEnquiries,
   IconMessages,
   IconProfile,
 } from '../components/icons/Icon';
@@ -28,6 +28,7 @@ export type BrowseStackParams = {
   ListingDetail: { listingId: string };
   Apply: { listingId: string };
   Chat: { conversationId: string };
+  Tour: { embedUrl: string; title: string };
 };
 
 export type LandlordStackParams = {
@@ -36,6 +37,9 @@ export type LandlordStackParams = {
   LandlordListingDetail: { listingId: string };
   Apply: { listingId: string };
   Chat: { conversationId: string };
+  // An owner should be able to see the tour of their own property — it is the
+  // only way they can check what was shot before a tenant does.
+  Tour: { embedUrl: string; title: string };
 };
 
 export type MessagesStackParams = {
@@ -43,10 +47,17 @@ export type MessagesStackParams = {
   Chat: { conversationId: string };
 };
 
+export type ProfileStackParams = {
+  ProfileHome: undefined;
+  /** Staff only, and gated again inside — the route existing is not permission. */
+  TourQueue: undefined;
+};
+
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator<BrowseStackParams>();
 const LandlordStack = createNativeStackNavigator<LandlordStackParams>();
 const MessagesStack = createNativeStackNavigator<MessagesStackParams>();
+const ProfileStack = createNativeStackNavigator<ProfileStackParams>();
 
 const stackScreenOptions = {
   headerStyle: { backgroundColor: colors.background },
@@ -73,6 +84,11 @@ function BrowseStack() {
           from the property, and bouncing the user to another tab mid-thought
           would lose their place in the listing. */}
       <Stack.Screen name="Chat" component={ChatScreen} options={{ title: 'Conversation' }} />
+      <Stack.Screen
+        name="Tour"
+        component={TourScreen}
+        options={({ route }) => ({ title: route.params.title })}
+      />
     </Stack.Navigator>
   );
 }
@@ -91,6 +107,30 @@ function MessagesFlow() {
         options={{ title: 'Conversation' }}
       />
     </MessagesStack.Navigator>
+  );
+}
+
+/**
+ * Profile gained a stack only so staff have somewhere to go.
+ *
+ * The tour queue is not a tab. Every account would carry it in the tab bar for
+ * the sake of the two or three people who can open it, and a tab bar is the
+ * most expensive space in the app.
+ */
+function ProfileFlow() {
+  return (
+    <ProfileStack.Navigator screenOptions={stackScreenOptions}>
+      <ProfileStack.Screen
+        name="ProfileHome"
+        component={ProfileScreen}
+        options={{ headerShown: false }}
+      />
+      <ProfileStack.Screen
+        name="TourQueue"
+        component={TourQueueScreen}
+        options={{ title: '360 tour queue' }}
+      />
+    </ProfileStack.Navigator>
   );
 }
 
@@ -123,6 +163,11 @@ function LandlordFlow() {
         name="Chat"
         component={ChatScreen}
         options={{ title: 'Conversation' }}
+      />
+      <LandlordStack.Screen
+        name="Tour"
+        component={TourScreen}
+        options={({ route }) => ({ title: route.params.title })}
       />
     </LandlordStack.Navigator>
   );
@@ -203,12 +248,11 @@ export default function AppTabs() {
         component={MessagesFlow}
         options={{ tabBarIcon: tabIcon(IconMessages) }}
       />
-      <Tab.Screen
-        name="Enquiries"
-        component={EnquiriesScreen}
-        options={{ tabBarIcon: tabIcon(IconEnquiries) }}
-      />
-      <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarIcon: tabIcon(IconProfile) }} />
+      {/* Enquiries was a tab until it turned out to be the same thing as
+          Messages. An enquiry is the first message of a conversation, so it now
+          opens one — and accepting or declining happens inside the thread it
+          belongs to rather than on a screen of its own. */}
+      <Tab.Screen name="Profile" component={ProfileFlow} options={{ tabBarIcon: tabIcon(IconProfile) }} />
     </Tab.Navigator>
   );
 }

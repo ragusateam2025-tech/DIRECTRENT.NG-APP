@@ -199,22 +199,42 @@ export default function ListingDetailScreen({ route }: Props) {
         <Fact value={String(listing.basicInfo.bedrooms)} label="Bedrooms" />
         <Fact value={String(listing.basicInfo.bathrooms)} label="Bathrooms" />
         <Fact value={String(listing.details.maxOccupants)} label="Max occupants" />
-        {/* Shown only when the owner answered. Absent means unstated, which is
-            honest — inferring "no" from silence would mislead a tenant about
-            the thing they most want to know before travelling. */}
+        {/* "Owner lives here" rather than "Owner on site", which reads like a
+            construction notice. This is the question a Nigerian renter asks in
+            plain words at every viewing, so it is asked in plain words here.
+
+            Yes or No only. Publishing is blocked until the owner answers, so
+            the sole way to reach this screen without a value is a listing
+            written before the question existed — those show nothing rather
+            than a third answer, and the fix for them is a data backfill, not
+            a label. */}
         {listing.ownerOccupied !== undefined && (
           <Fact
             value={listing.ownerOccupied ? 'Yes' : 'No'}
-            label="Owner on site"
+            label="Owner lives here"
           />
         )}
       </Animated.View>
 
       <SavingsBreakdown annualRent={listing.pricing.annualRent} />
 
-      {/* Tenants only. An owner looking at their own listing is not the person
-          being offered a tour of it. */}
-      {listing.ownerId !== profile?.uid && <TourBanner />}
+      {/* Shown to the owner too once a tour exists — checking what was shot
+          before a tenant sees it is the only review they get. Without one it
+          stays a tenant-facing promise, which an owner does not need. */}
+      {(listing.ownerId !== profile?.uid || !!listing.tour) && (
+        <TourBanner
+          tour={listing.tour}
+          onOpen={
+            listing.tour?.embedUrl
+              ? () =>
+                  navigation.navigate('Tour', {
+                    embedUrl: listing.tour!.embedUrl,
+                    title: listing.basicInfo.title,
+                  })
+              : undefined
+          }
+        />
+      )}
 
       <Text style={styles.sectionHeading}>About this property</Text>
       <Text style={styles.description}>{listing.details.description}</Text>

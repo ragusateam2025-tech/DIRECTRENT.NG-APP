@@ -29,6 +29,7 @@ export default function PhotosStep({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
+  const [tourRequested, setTourRequested] = useState(!!draft.tourRequested);
 
   /** Offers the two ways an owner actually has photos: already taken, or about to take. */
   function addPhotos() {
@@ -125,7 +126,7 @@ export default function PhotosStep({
       return;
     }
     setError('');
-    onNext({ media: { ...draft.media, photos } });
+    onNext({ media: { ...draft.media, photos }, tourRequested });
   }
 
   const remaining = Math.max(0, MIN_PHOTOS - photos.length);
@@ -138,6 +139,22 @@ export default function PhotosStep({
           ? `At least ${MIN_PHOTOS} photos — ${remaining} more to go. The first is the cover.`
           : `${photos.length} photos added. The first is the cover.`}
       </Text>
+
+      {/*
+        Said before the camera opens, not after. A tenant scrolling Browse is
+        comparing your property against every other one on the screen, and an
+        unmade bed is what they remember. This costs an owner ten minutes and
+        is the highest-return thing on this step.
+      */}
+      <View style={styles.advice}>
+        <Text style={styles.adviceHeading}>Tidy first, then shoot</Text>
+        <Text style={styles.adviceBody}>
+          Clear the floor, open the curtains and take the photos in daylight. The
+          same flat photographed clean and photographed cluttered gets a very
+          different number of enquiries, and it is the cheapest advantage you
+          have over the next listing.
+        </Text>
+      </View>
 
       <View style={styles.grid}>
         {photos.map((uri, index) => (
@@ -188,6 +205,49 @@ export default function PhotosStep({
         tenants to load. Long press a photo to remove it.
       </Text>
 
+      {/*
+        The second way to show a property, offered alongside photos rather than
+        instead of them. Photos are still required: a tour is booked, shot and
+        attached days later, and a listing cannot wait on a visit before it can
+        go live.
+
+        Which of the two actually moves enquiries is the open question, and the
+        reason both exist — a listing with a tour and a listing without one are
+        the two halves of that comparison.
+      */}
+      <Pressable
+        onPress={() => setTourRequested(v => !v)}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: tourRequested }}
+        accessibilityLabel="Ask Directrent to shoot a 360 tour of this property"
+        style={({ pressed }) => [
+          styles.tourCard,
+          tourRequested && styles.tourCardOn,
+          pressed && styles.tourCardPressed,
+        ]}
+      >
+        <View style={styles.tourHeadingRow}>
+          <View style={[styles.checkbox, tourRequested && styles.checkboxOn]}>
+            {tourRequested && <Text style={styles.checkboxMark}>✓</Text>}
+          </View>
+          <Text style={styles.tourHeading}>Ask us to shoot a 360 tour</Text>
+        </View>
+
+        <Text style={styles.tourBody}>
+          One of our people visits with a 360 camera and shoots the whole flat, so
+          tenants can walk through it from their phone. Free while we are testing
+          it. We will contact you to arrange a time.
+        </Text>
+
+        {tourRequested && (
+          <Text style={styles.tourWarning}>
+            Have the place properly clean and empty of clutter before we arrive.
+            A 360 camera sees every corner of every room at once — there is no
+            angle to shoot around a mess, and we cannot re-shoot for free.
+          </Text>
+        )}
+      </Pressable>
+
       {!!error && <Text style={styles.error}>{error}</Text>}
 
       <View style={styles.action}>
@@ -216,6 +276,72 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     marginTop: spacing.xs,
     marginBottom: spacing.md,
+  },
+  advice: {
+    backgroundColor: colors.backgroundPaper,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.accentGold,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  adviceHeading: {
+    color: colors.textPrimary,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.sm,
+  },
+  adviceBody: {
+    color: colors.textSecondary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    lineHeight: 21,
+    marginTop: spacing.xs,
+  },
+  tourCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+  },
+  tourCardOn: { borderColor: colors.borderGold },
+  tourCardPressed: { opacity: 0.85 },
+  tourHeadingRow: { flexDirection: 'row', alignItems: 'center' },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  checkboxOn: { borderColor: colors.accentGold, backgroundColor: colors.accentGold },
+  checkboxMark: {
+    color: colors.background,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.xs,
+  },
+  tourHeading: {
+    color: colors.textPrimary,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.base,
+    flex: 1,
+  },
+  tourBody: {
+    color: colors.textSecondary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    lineHeight: 21,
+    marginTop: spacing.sm,
+  },
+  tourWarning: {
+    color: colors.accentGold,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    lineHeight: 21,
+    marginTop: spacing.sm,
   },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   tile: {
