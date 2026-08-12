@@ -144,6 +144,16 @@ describe('listings', () => {
     await assertFails(updateDoc(doc(db, 'listings/l1'), { ownerId: STRANGER }));
   });
 
+  it('lets the owner delete their own listing', async () => {
+    // The other half of the pair below. Owners can now delete from the app, and
+    // a rule that only ever refuses would pass every test while making the
+    // feature impossible.
+    await seed(db => setDoc(doc(db, 'listings/l1'), listing()));
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertSucceeds(deleteDoc(doc(db, 'listings/l1')));
+  });
+
   it('refuses a stranger deleting a listing', async () => {
     await seed(db => setDoc(doc(db, 'listings/l1'), listing()));
 

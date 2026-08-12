@@ -34,6 +34,8 @@ import {
   IconCall,
   IconShare,
 } from '../components/icons/Icon';
+import { usePreventScreenCapture } from 'expo-screen-capture';
+import { deleteListing } from '../services/landlord';
 import { ensureConversation } from '../services/messages';
 import { shareListing } from '../lib/shareListing';
 import type { Listing } from '../types';
@@ -50,6 +52,18 @@ interface Props {
 export default function ListingDetailScreen({ route }: Props) {
   const { listingId } = route.params;
   /**
+   * The listing itself is protected too, not only the full-screen viewer.
+   *
+   * The gallery here shows each photograph at a readable size, and a screenshot
+   * of this screen carries the address, the rent and the pictures together —
+   * which is the whole listing, ready to be reposted somewhere else.
+   *
+   * The cost of this is real and worth naming: a tenant can no longer
+   * screenshot a property to send to whoever is helping them decide. The Share
+   * button exists for exactly that journey, and it is now the only route.
+   */
+  usePreventScreenCapture();
+  /**
    * This screen is mounted in two stacks: as `ListingDetail` under Browse and
    * as `LandlordListingDetail` under My properties. Only the landlord stack
    * contains the wizard, so offering Edit from Browse would navigate to a route
@@ -59,6 +73,7 @@ export default function ListingDetailScreen({ route }: Props) {
    * listing is not enough on its own to know the wizard is reachable.
    */
   const canReachWizard = route.name === 'LandlordListingDetail';
+  const [deleting, setDeleting] = useState(false);
   const { profile } = useAuth();
   const navigation = useNavigation<any>();
   const [listing, setListing] = useState<Listing | null>(null);
@@ -165,6 +180,75 @@ export default function ListingDetailScreen({ route }: Props) {
     }
   }
 
+  /**
+   * Deletes the owner's own property, behind two deliberate steps.
+   *
+   * One tap is not enough for something irreversible. The first screen is not a
+   * confirmation at all — it is a statement of what disappears, named
+   * specifically, because "are you sure?" asks a question the person cannot
+   * answer without knowing the consequences. Only the second asks.
+   *
+   * Both steps put the destructive choice on the right and Cancel first, so the
+   * habitual tap is the safe one.
+   */
+  function handleDelete() {
+    if (!listing || !profile || deleting) return;
+
+    const photoCount = listing.media?.photos?.length ?? 0;
+
+    Alert.alert(
+      `Delete ${listing.basicInfo.title}?`,
+      [
+        'This cannot be undone.',
+        '',
+        `• The listing is removed from Browse immediately${
+          photoCount > 0 ? `\n• All ${photoCount} photographs are deleted` : ''
+        }`,
+        '• Anyone who saved it will no longer find it',
+        '',
+        'Conversations about this property are kept, so tenants who already messaged you can still reach you.',
+      ].join('\n'),
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Continue', onPress: confirmDelete },
+      ],
+    );
+  }
+
+  function confirmDelete() {
+    if (!listing || !profile) return;
+
+    Alert.alert(
+      'Delete permanently?',
+      'Last chance to change your mind.',
+      [
+        { text: 'Keep my listing', style: 'cancel' },
+        {
+          text: 'Delete permanently',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteListing(profile.uid, listing.id);
+              Alert.alert('Listing deleted', `${listing.basicInfo.title} has been removed.`, [
+                { text: 'Done', onPress: () => navigation.goBack() },
+              ]);
+            } catch (err: any) {
+              // Loudly: a half-failed delete leaves a property tenants can
+              // still find, and an owner who believes it is gone.
+              Alert.alert(
+                'Could not delete the listing',
+                err?.message ?? 'Please try again.',
+              );
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  }
+
   async function handleToggleSave() {
     if (!profile) return;
     try {
@@ -178,8 +262,15 @@ export default function ListingDetailScreen({ route }: Props) {
           ? Haptics.NotificationFeedbackType.Success
           : Haptics.NotificationFeedbackType.Warning,
       ).catch(() => {});
-    } catch {
-      // Non-fatal during a demo — leave the current state alone.
+    } catch (err: any) {
+      // Said out loud. Swallowing this left the icon unchanged and no message,
+      // so a tenant tapping Save saw nothing happen — and tapping again saw
+      // nothing happen either, with no way to tell a failure from a dead
+      // button.
+      Alert.alert(
+        'Could not save this property',
+        err?.message ?? 'Check your connection and try again.',
+      );
     }
   }
 
@@ -200,6 +291,15 @@ export default function ListingDetailScreen({ route }: Props) {
   }
 
   const photos = allImageSources(listing);
+
+  /**
+   * Whether this screen is being read by the person who owns the property.
+   *
+   * Either route can show a listing — a "both" account reaches its own property
+   * from Browse as easily as from My properties — so ownership is the test, and
+   * the stack only decides whether the wizard is reachable from here.
+   */
+  const viewingAsOwner = !!listing.ownerId && listing.ownerId === profile?.uid;
 
   return (
     <ScrollView style={styles.wrapper} contentContainerStyle={styles.content}>
@@ -338,8 +438,20 @@ export default function ListingDetailScreen({ route }: Props) {
         */}
         {/* Requires a known owner as well as it not being you. Without the
             first check a listing missing ownerId offers contact buttons that
-            cannot possibly work. */}
-        {!!listing.ownerId && listing.ownerId !== profile?.uid && (
+            cannot possibly work.
+
+            Owner-only accounts are excluded. Somebody registered solely as a
+            property owner has no business opening a tenancy conversation with
+            another owner — it is how a marketplace fills with people canvassing
+            each other rather than housing anybody. An owner who genuinely wants
+            to rent somewhere sets their role to Tenant & property owner, which
+            takes one tap and is an honest statement of what they are doing.
+
+            This is a product guardrail, not a security boundary, and the
+            distinction matters: role lives on the user's own document and they
+            can change it themselves. It shapes the default path rather than
+            sealing it, which is the right weight for the problem. */}
+        {!!listing.ownerId && listing.ownerId !== profile?.uid && profile?.role !== 'landlord' && (
           <>
             <Button
               label={applied ? 'Open conversation' : 'Message property owner'}
@@ -361,26 +473,68 @@ export default function ListingDetailScreen({ route }: Props) {
             />
           </>
         )}
-        <View style={styles.actionSpacer} />
-        <Button
-          label={saved ? 'Saved' : 'Save property'}
-          variant="secondary"
-          icon={<AnimatedSaveIcon saved={saved} pulse={savePulse} size={18} color={colors.accentGold} />}
-          onPress={handleToggleSave}
-        />
-        {/* Offered to everyone, including the owner — an owner sending their
-            own property to somebody is the same useful act.
+        {/* Said plainly rather than leaving an owner staring at a listing with
+            no way to act on it and no idea why. */}
+        {!!listing.ownerId && listing.ownerId !== profile?.uid && profile?.role === 'landlord' && (
+          <Text style={styles.ownerOnlyNote}>
+            You are registered as a property owner. To enquire about somewhere to
+            rent, change your role to Tenant &amp; property owner in Profile.
+          </Text>
+        )}
 
-            Almost nobody rents alone here: the person who decides is often not
-            the person browsing, so a property forwarded to a spouse or a parent
-            is how the decision actually gets made. */}
-        <View style={styles.actionSpacer} />
-        <Button
-          label="Share this property"
-          variant="secondary"
-          icon={<IconShare size={18} color={colors.accentGold} />}
-          onPress={handleShare}
-        />
+        {/*
+          Saving and sharing are a tenant's tools and are hidden on your own
+          property. Saving your own listing is a bookmark to something already
+          in My properties, and a share sheet on it invites an owner to
+          advertise elsewhere, which is the opposite of what the platform is
+          for. Neither is useful, and an unused control is still something to
+          read past.
+        */}
+        {!viewingAsOwner && (
+          <>
+            <View style={styles.actionSpacer} />
+            <Button
+              label={saved ? 'Saved' : 'Save property'}
+              variant="secondary"
+              icon={
+                <AnimatedSaveIcon
+                  saved={saved}
+                  pulse={savePulse}
+                  size={18}
+                  color={colors.accentGold}
+                />
+              }
+              onPress={handleToggleSave}
+            />
+
+            {/* Almost nobody rents alone here: the person who decides is often
+                not the person browsing, so a property forwarded to a spouse or
+                a parent is how the decision actually gets made. */}
+            <View style={styles.actionSpacer} />
+            <Button
+              label="Share this property"
+              variant="secondary"
+              icon={<IconShare size={18} color={colors.accentGold} />}
+              onPress={handleShare}
+            />
+          </>
+        )}
+
+        {/*
+          Deleting is last, and separated, because it is the one action here
+          that cannot be undone.
+        */}
+        {viewingAsOwner && canReachWizard && (
+          <>
+            <View style={styles.actionSpacer} />
+            <Button
+              label="Delete listing"
+              variant="secondary"
+              loading={deleting}
+              onPress={handleDelete}
+            />
+          </>
+        )}
       </View>
     </ScrollView>
   );
@@ -510,4 +664,12 @@ const styles = StyleSheet.create({
   },
   actions: { marginTop: spacing.lg },
   actionSpacer: { height: spacing.sm },
+  ownerOnlyNote: {
+    color: colors.textMuted,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    lineHeight: 21,
+    textAlign: 'center',
+    paddingHorizontal: spacing.md,
+  },
 });

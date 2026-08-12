@@ -134,12 +134,21 @@ export async function deletePhoto(downloadUrl: string): Promise<void> {
 }
 
 /**
- * Discards a draft and everything uploaded for it.
+ * Removes a listing and every photograph uploaded for it.
  *
  * Deleting the document alone would leave the photographs paid for and
  * unreachable, so storage is cleared first.
+ *
+ * Storage failures do not stop the document going. A listing whose photos
+ * survive is a storage bill; a document that survives is a property tenants can
+ * still find and enquire about, which is the outcome the owner asked to end.
+ *
+ * What deliberately survives: conversations and enquiries about this property.
+ * Both copy the title and area at creation, so they still read correctly, and
+ * neither is the owner's alone to erase — a tenant's record of what was said to
+ * them should not disappear because the other party changed their mind.
  */
-export async function discardDraft(ownerId: string, listingId: string): Promise<void> {
+export async function deleteListing(ownerId: string, listingId: string): Promise<void> {
   try {
     const folder = await listAll(ref(storage, `listings/${ownerId}/${listingId}`));
     await Promise.all(folder.items.map(item => deleteObject(item).catch(() => {})));
@@ -148,6 +157,17 @@ export async function discardDraft(ownerId: string, listingId: string): Promise<
   }
 
   await deleteDoc(doc(db, COLLECTIONS.listings, listingId));
+}
+
+/**
+ * Discards a draft.
+ *
+ * The same operation under the name the wizard uses for it, kept so the exit
+ * path reads as what it is: abandoning something unpublished, not deleting a
+ * live property.
+ */
+export async function discardDraft(ownerId: string, listingId: string): Promise<void> {
+  await deleteListing(ownerId, listingId);
 }
 
 export interface PublishResult {

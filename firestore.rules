@@ -29,11 +29,25 @@ service cloud.firestore {
       allow create: if request.auth != null
                     && request.resource.data.ownerId == request.auth.uid;
 
-      // Only the owner may change or remove a listing, and ownership itself
-      // is immutable — a listing cannot be reassigned to another account.
-      allow update, delete: if request.auth != null
-                            && resource.data.ownerId == request.auth.uid
-                            && request.resource.data.ownerId == resource.data.ownerId;
+      // Only the owner may change a listing, and ownership itself is immutable
+      // — a listing cannot be reassigned to another account.
+      allow update: if request.auth != null
+                    && resource.data.ownerId == request.auth.uid
+                    && request.resource.data.ownerId == resource.data.ownerId;
+
+      // Delete is separate, and has to be.
+      //
+      // It used to share the clause above, which reads
+      // request.resource.data.ownerId — and on a delete there is no incoming
+      // document, so request.resource is null and the whole condition throws.
+      // Every deletion was refused: an owner could not remove their own
+      // property, and the wizard's Discard never removed the draft document it
+      // claimed to. Both failed silently, because both callers swallow the
+      // error so a failed cleanup cannot block someone mid-form.
+      //
+      // The same mistake, in the same shape, as the one in storage.rules.
+      allow delete: if request.auth != null
+                    && resource.data.ownerId == request.auth.uid;
 
       // Directrent staff attach 360 tours to listings they did not create, so
       // the ownership clause above can never cover them.
