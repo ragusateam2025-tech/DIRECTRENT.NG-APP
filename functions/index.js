@@ -4,6 +4,10 @@ const admin = require('firebase-admin');
 
 admin.initializeApp();
 
+// Storage-triggered photo enhancement. Kept in its own file because it shares
+// nothing with messaging beyond the admin app.
+exports.enhanceListingPhoto = require('./enhancePhoto').enhanceListingPhoto;
+
 /**
  * Server-side work for Directrent.
  *
