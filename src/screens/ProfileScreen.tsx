@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,13 +10,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { colors, typography, spacing, radius } from '../theme/tokens';
 import Button from '../components/Button';
 import TextField from '../components/TextField';
 import { uploadAvatar, deleteAvatar } from '../services/avatar';
 import { fetchMyListings } from '../services/landlord';
+import { pushStatus, registerForPush, type PushStatus } from '../services/push';
 import {
   PHONE_ERROR,
   formatNigerianPhone,
@@ -39,6 +40,17 @@ export default function ProfileScreen() {
   const { profile, logOut, setRole, updateDetails, changePassword } = useAuth();
   const [editing, setEditing] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [push, setPush] = useState<PushStatus | null>(null);
+  const [enablingPush, setEnablingPush] = useState(false);
+
+  // Read on arrival, and again whenever this screen is returned to: somebody
+  // sent to Android Settings to unblock notifications comes back here, and a
+  // stale "off" would tell them it had not worked.
+  useFocusEffect(
+    useCallback(() => {
+      pushStatus().then(setPush).catch(() => setPush(null));
+    }, []),
+  );
   const [avatarError, setAvatarError] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -227,6 +239,23 @@ export default function ProfileScreen() {
     );
   }
 
+  async function handleEnablePush() {
+    if (!profile || enablingPush) return;
+
+    setEnablingPush(true);
+    try {
+      await registerForPush(profile.uid);
+      setPush(await pushStatus());
+    } catch (err: any) {
+      // Said out loud here, unlike the background registration. Somebody who
+      // deliberately pressed this deserves to know what stopped it.
+      setPush(await pushStatus());
+      Alert.alert('Could not turn on notifications', err?.message ?? String(err));
+    } finally {
+      setEnablingPush(false);
+    }
+  }
+
   async function handleSave() {
     if (!profile || saving) return;
 
@@ -352,6 +381,35 @@ export default function ProfileScreen() {
             </Pressable>
           ))}
         </View>
+
+        {/*
+          Notifications get a visible state because registration is silent by
+          design — it runs unawaited when a profile loads and its failure is
+          swallowed, so that neither a refusal nor an emulator can stand between
+          somebody and their account. The cost of that choice is nobody knowing
+          why messages never arrive. This is where they find out.
+        */}
+        <Text style={styles.sectionHeading}>Notifications</Text>
+        <Text style={styles.pushState}>
+          {push === 'on'
+            ? 'On — you will be told when a message arrives.'
+            : push === 'blocked'
+              ? 'Turned off for Directrent. Android Settings is the only way back on, under Apps, Directrent, Notifications.'
+              : push === 'unsupported'
+                ? 'Not available on this device.'
+                : 'Off — you will not be told when somebody messages you.'}
+        </Text>
+
+        {push === 'off' && (
+          <View style={styles.pushAction}>
+            <Button
+              label="Turn on notifications"
+              variant="secondary"
+              loading={enablingPush}
+              onPress={handleEnablePush}
+            />
+          </View>
+        )}
 
         <Text style={styles.sectionHeading}>Password</Text>
 
@@ -488,6 +546,13 @@ const styles = StyleSheet.create({
    * control has the same 2px base — and only its colour changes, so selecting
    * a role never shifts the layout by a pixel.
    */
+  pushState: {
+    color: colors.textSecondary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    lineHeight: 21,
+  },
+  pushAction: { marginTop: spacing.md },
   pill: {
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,

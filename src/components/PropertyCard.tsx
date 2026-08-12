@@ -17,6 +17,7 @@ import { duration, easing, spring, stagger, travel } from '../theme/motion';
 import { formatNaira } from '../lib/format';
 import { calculateSavings } from '../lib/savings';
 import { allImageSources, primaryImageSource } from '../lib/listingImage';
+import { IconClose } from './icons/Icon';
 import type { Listing } from '../types';
 
 /** How long each photo holds before the next one fades in. */
@@ -29,11 +30,24 @@ interface PropertyCardProps {
   onPress: () => void;
   /** Position in the list, used to stagger the entrance. */
   index?: number;
+  /**
+   * Removes this property from wherever the card is listed.
+   *
+   * Optional, and absent everywhere but the saved list. Browse shows the same
+   * card and has nothing to remove from, so the control simply does not exist
+   * there rather than being drawn and disabled.
+   */
+  onRemove?: () => void;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export default function PropertyCard({ listing, onPress, index = 0 }: PropertyCardProps) {
+export default function PropertyCard({
+  listing,
+  onPress,
+  index = 0,
+  onRemove,
+}: PropertyCardProps) {
   const image = primaryImageSource(listing);
   const photos = allImageSources(listing);
   const { savings } = calculateSavings(listing.pricing.annualRent);
@@ -178,6 +192,20 @@ export default function PropertyCard({ listing, onPress, index = 0 }: PropertyCa
           <View style={styles.areaTag} pointerEvents="none">
             <Text style={styles.areaTagText}>{listing.location.area}</Text>
           </View>
+
+          {/* A sibling of the card's own press target rather than a child, so a
+              tap here removes the property instead of opening it. */}
+          {onRemove && (
+            <Pressable
+              onPress={onRemove}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${listing.basicInfo.title} from saved`}
+              hitSlop={10}
+              style={({ pressed }) => [styles.remove, pressed && styles.removePressed]}
+            >
+              <IconClose size={18} color={colors.textPrimary} />
+            </Pressable>
+          )}
         </View>
 
         <View style={styles.body}>
@@ -237,6 +265,20 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   imageScrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 80 },
+  // Top right, away from the area tag and the dots, and on a dark disc so it
+  // stays visible over a pale photograph.
+  remove: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    backgroundColor: 'rgba(26,10,10,0.65)',
+  },
+  removePressed: { opacity: 0.7 },
   // Bottom right, opposite the area tag, so the two never collide on a narrow
   // screen.
   dots: {

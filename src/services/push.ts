@@ -51,6 +51,32 @@ async function ensureAndroidChannel(): Promise<void> {
 
 export class PushUnavailable extends Error {}
 
+export type PushStatus =
+  /** Registered, and a token is on the account. */
+  | 'on'
+  /** Refused, or never asked. Asking again may still work. */
+  | 'off'
+  /** Refused permanently — only Android Settings can change it now. */
+  | 'blocked'
+  /** An emulator. Push cannot work here at all. */
+  | 'unsupported';
+
+/**
+ * What the phone currently thinks about notifications.
+ *
+ * Exists because registration is deliberately non-fatal and therefore silent:
+ * it is called without awaiting and its failure is swallowed, so nobody — user
+ * or developer — could tell a refusal from a bug from an emulator. Somewhere
+ * has to say.
+ */
+export async function pushStatus(): Promise<PushStatus> {
+  if (!Device.isDevice) return 'unsupported';
+
+  const permission = await Notifications.getPermissionsAsync();
+  if (permission.status === 'granted') return 'on';
+  return permission.canAskAgain ? 'off' : 'blocked';
+}
+
 /**
  * Registers this device for message notifications.
  *

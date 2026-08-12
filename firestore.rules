@@ -155,8 +155,18 @@ service cloud.firestore {
         return resource.data.participants;
       }
 
+      // A conversation that does not exist yet is readable, and it has to be.
+      //
+      // Opening one starts by asking whether it already exists. On a document
+      // that is not there, `resource` is null, so reading resource.data.
+      // participants throws — and a rule that throws denies. The check that
+      // must happen before the first message could therefore never pass, which
+      // is why an enquiry had never once completed end to end.
+      //
+      // This leaks nothing. A missing document returns nothing, and an existing
+      // one is still readable only by the two people in it.
       allow read: if request.auth != null
-                  && request.auth.uid in participants();
+                  && (resource == null || request.auth.uid in participants());
 
       // Either party may open the thread, and must include themselves in it.
       allow create: if request.auth != null
@@ -239,7 +249,11 @@ service cloud.firestore {
         return request.auth != null && request.auth.uid in resource.data.participants;
       }
 
-      allow read: if onCall();
+      // Same shape as the conversation rule, and for the same reason: the
+      // callee's phone starts listening on a call document before the caller
+      // has written it, and a rule that reads resource.data on a missing
+      // document throws rather than returning false.
+      allow read: if request.auth != null && (resource == null || onCall());
 
       // A call may only be placed in the caller's own name, and must name two
       // people — one of them the caller.

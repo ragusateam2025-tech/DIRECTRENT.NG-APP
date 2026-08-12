@@ -311,6 +311,25 @@ describe('conversations', () => {
     await assertSucceeds(getDoc(doc(db, 'conversations/c1')));
   });
 
+  it('lets a signed-in user read a conversation that does not exist yet', async () => {
+    // Opening a conversation starts by asking whether one already exists. On a
+    // missing document `resource` is null, so a rule reading
+    // resource.data.participants throws — and a throw denies. This check sits
+    // in front of the first message, so failing it meant an enquiry could never
+    // complete. Seeded nothing on purpose.
+    const db = testEnv.authenticatedContext(TENANT).firestore();
+    await assertSucceeds(getDoc(doc(db, 'conversations/does-not-exist')));
+  });
+
+  it('still refuses a stranger reading one that does exist', async () => {
+    // The other half: tolerating a missing document must not soften the rule
+    // for a real one.
+    await seed(db => setDoc(doc(db, 'conversations/c1'), conversation));
+
+    const db = testEnv.authenticatedContext(STRANGER).firestore();
+    await assertFails(getDoc(doc(db, 'conversations/c1')));
+  });
+
   it('refuses anyone else reading it', async () => {
     // It carries both names and what they said to each other.
     await seed(db => setDoc(doc(db, 'conversations/c1'), conversation));

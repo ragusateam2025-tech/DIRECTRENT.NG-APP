@@ -1,12 +1,12 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { colors, spacing } from '../theme/tokens';
 import PropertyCard from '../components/PropertyCard';
 import EmptyState from '../components/EmptyState';
 import { fetchListingsByIds } from '../services/listings';
-import { fetchSavedIds } from '../services/saved';
+import { fetchSavedIds, toggleSaved } from '../services/saved';
 import { useAuth } from '../context/AuthContext';
 import type { Listing } from '../types';
 
@@ -51,6 +51,34 @@ export default function SavedScreen() {
     }, [profile]),
   );
 
+  /**
+   * Removes a property from the saved list.
+   *
+   * No confirmation. Unsaving costs nothing and is undone by tapping save again
+   * on the property, so a dialog here would be a question with only one sensible
+   * answer — and this is a list people prune, which means several taps in a row.
+   *
+   * The card disappears immediately and comes back if the write fails. Waiting
+   * on the network before responding makes a list feel broken on a slow
+   * connection, which in Lagos is most of the time.
+   */
+  async function handleRemove(listing: Listing) {
+    if (!profile) return;
+
+    const previous = listings;
+    setListings(current => current.filter(l => l.id !== listing.id));
+
+    try {
+      await toggleSaved(profile.uid, listing.id);
+    } catch (err: any) {
+      setListings(previous);
+      Alert.alert(
+        'Could not remove that property',
+        err?.message ?? 'Check your connection and try again.',
+      );
+    }
+  }
+
   if (loading) {
     return (
       <View style={styles.centre}>
@@ -82,6 +110,7 @@ export default function SavedScreen() {
                 params: { listingId: item.id },
               })
             }
+            onRemove={() => handleRemove(item)}
           />
         )}
       />
