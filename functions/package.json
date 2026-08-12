@@ -1,0 +1,17 @@
+{
+  "name": "directrent-functions",
+  "description": "Server-side work for Directrent.ng that cannot be trusted to a phone.",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "logs": "firebase functions:log"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.1.1"
+  }
+}

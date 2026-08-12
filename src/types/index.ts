@@ -182,6 +182,19 @@ export interface UserProfile {
    * them in.
    */
   staff?: boolean;
+  /**
+   * This account's current device token, for message notifications.
+   *
+   * Null when the user signed out or refused notifications — both mean "do not
+   * send", which is why it is nulled rather than deleted: a missing field and a
+   * deliberately cleared one should not have to be told apart by the sender.
+   *
+   * One device per account. Someone signing in on a second phone moves their
+   * notifications to it, which is the behaviour people expect and avoids
+   * pushing a private conversation to a handset they have lent out.
+   */
+  fcmToken?: string | null;
+  fcmUpdatedAt?: number;
   createdAt: number;
 }
 
