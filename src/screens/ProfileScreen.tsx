@@ -16,6 +16,7 @@ import { colors, typography, spacing, radius } from '../theme/tokens';
 import Button from '../components/Button';
 import TextField from '../components/TextField';
 import { uploadAvatar, deleteAvatar } from '../services/avatar';
+import { fetchMyListings } from '../services/landlord';
 import {
   PHONE_ERROR,
   formatNigerianPhone,
@@ -166,6 +167,66 @@ export default function ProfileScreen() {
     setEditing(true);
   }
 
+  /**
+   * Switches role, warning first when the switch would hide someone's
+   * properties.
+   *
+   * Leaving the owner role removes the My properties tab, and with it every
+   * route to a listing. Nothing is deleted and the listings stay published —
+   * but from where the owner is standing their properties have vanished, with
+   * no explanation and no visible way back. That is a support call at best, and
+   * a bad moment in front of an investor at worst.
+   *
+   * The count is fetched at the moment of the decision rather than kept on this
+   * screen: it costs one read, only when someone actually reaches for the
+   * switch, and it lets the message name what is at stake instead of warning in
+   * the abstract.
+   *
+   * Nobody is stopped. An owner with no listings switches silently, because
+   * there is nothing to reassure them about, and "Tenant & property owner"
+   * already exists for anyone who wants both.
+   */
+  async function handleRoleChange(next: UserRole) {
+    if (!profile || next === profile.role) return;
+
+    const leavingOwner =
+      (profile.role === 'landlord' || profile.role === 'both') && next === 'tenant';
+
+    if (!leavingOwner) {
+      await setRole(next);
+      return;
+    }
+
+    let count: number | null = null;
+    try {
+      count = (await fetchMyListings(profile.uid)).length;
+    } catch {
+      // Left null. Warning without a number beats switching silently, and
+      // beats blocking somebody because a read failed.
+    }
+
+    if (count === 0) {
+      await setRole(next);
+      return;
+    }
+
+    const properties =
+      count === null
+        ? 'Your properties'
+        : count === 1
+          ? 'Your property'
+          : `Your ${count} properties`;
+
+    Alert.alert(
+      'Switch to tenant only?',
+      `${properties} will stay published and tenants can still find them. Switch back to Property owner any time to manage them.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Switch', onPress: () => setRole(next) },
+      ],
+    );
+  }
+
   async function handleSave() {
     if (!profile || saving) return;
 
@@ -278,7 +339,9 @@ export default function ProfileScreen() {
           {(['tenant', 'landlord', 'both'] as UserRole[]).map(role => (
             <Pressable
               key={role}
-              onPress={() => setRole(role)}
+              onPress={() => handleRoleChange(role)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: profile.role === role }}
               style={[styles.pill, styles.rolePill, profile.role === role && styles.rolePillActive]}
             >
               <Text

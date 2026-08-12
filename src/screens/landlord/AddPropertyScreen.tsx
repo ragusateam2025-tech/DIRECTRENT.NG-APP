@@ -28,7 +28,7 @@ const STEPS = ['Basics', 'Location', 'Photos', 'Pricing', 'Details'] as const;
 export type DraftListing = Partial<Listing>;
 
 export default function AddPropertyScreen() {
-  const { profile, refreshVerification, resendVerification } = useAuth();
+  const { profile, refreshVerification, resendVerification, setRole } = useAuth();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const existingDraftId: string | undefined = route.params?.draftId;
@@ -217,13 +217,23 @@ export default function AddPropertyScreen() {
         Alert.alert('Not ready to publish', result.reason ?? 'Something is missing.');
         return;
       }
-      // Says what actually happens. publishListing sets the listing straight to
-      // `active` — review was removed because there is no admin panel to review
-      // from — so telling an owner to wait for an approval that never comes
-      // left them watching for a state change that had already happened.
+      // Somebody who publishes a property is a property owner, whatever they
+      // ticked when they signed up. Rather than leaving them to discover the
+      // role switch in Profile, the app notices and upgrades them.
+      //
+      // Only ever upwards, to 'both'. Adding a tab is a gain and needs no
+      // permission; taking one away is the thing that alarms people, and this
+      // never does that. Told rather than done silently, because a tab bar that
+      // changes shape without explanation is unsettling even when the change
+      // is in your favour.
+      const becameOwner = profile?.role === 'tenant';
+      if (becameOwner) await setRole('both').catch(() => {});
+
       Alert.alert(
         'Your property is live',
-        'Tenants can find it in Browse now. You can see it under My properties.',
+        becameOwner
+          ? 'Tenants can find it in Browse now. You can see it under My properties — a new tab, added because you have listed a place.'
+          : 'Tenants can find it in Browse now. You can see it under My properties.',
         [{ text: 'Done', onPress: () => navigation.goBack() }],
       );
     } catch (err: any) {

@@ -124,6 +124,13 @@ export default function ApplyScreen() {
         message,
       });
 
+      // No role change here.
+      //
+      // An enquiry is an intention, not a tenancy — somebody asking about a
+      // flat has not become a tenant, and treating a question as proof would
+      // reclassify people on the strength of curiosity. The upgrade belongs at
+      // a completed deal, which the app cannot yet observe: there is no payment
+      // and no signed agreement to observe it from.
       navigation.replace('Chat', { conversationId });
     } catch (err: any) {
       setError(
