@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Image,
+  Pressable,
   NativeScrollEvent,
   NativeSyntheticEvent,
   StyleSheet,
@@ -14,6 +15,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, typography, spacing, radius } from '../theme/tokens';
+import ImageViewer from './ImageViewer';
 
 /** Matches the Browse cards, so the two do not feel like different features. */
 const HOLD_MS = 3600;
@@ -60,6 +62,8 @@ export default function PhotoGallery({
    */
   const listRef = useRef<FlatList<ImageSourcePropType>>(null);
   const [taken, setTaken] = useState(false);
+  /** Which photo the full-screen viewer is showing, or null when it is closed. */
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const isFocused = useIsFocused();
   const reduceMotion = useReducedMotion();
 
@@ -110,12 +114,26 @@ export default function PhotoGallery({
           index: i,
         })}
         renderItem={({ item, index: i }) => (
-          <Image
-            source={item}
-            style={{ width: pageWidth, height }}
-            resizeMode="cover"
-            accessibilityLabel={`Photo ${i + 1} of ${photos.length}`}
-          />
+          // Tapping opens the photo full screen, where it can be zoomed.
+          //
+          // At card size a photograph is enough to decide whether to keep
+          // reading and not enough to decide anything else — whether that mark
+          // on the wall is a shadow or damp is the question people actually
+          // have, and the only answer is a bigger picture.
+          <Pressable
+            onPress={() => {
+              setTaken(true);
+              setViewerIndex(i);
+            }}
+            accessibilityRole="imagebutton"
+            accessibilityLabel={`Photo ${i + 1} of ${photos.length}. Opens full screen.`}
+          >
+            <Image
+              source={item}
+              style={{ width: pageWidth, height }}
+              resizeMode="cover"
+            />
+          </Pressable>
         )}
       />
 
@@ -139,6 +157,28 @@ export default function PhotoGallery({
             ))}
           </View>
         </>
+      )}
+
+      {/*
+        Mounted only while open, and keyed by the photo it opens on.
+
+        Kept mounted, its internal state initialises once — from index 0, the
+        first time this screen renders — so tapping the fifth photo opened the
+        first, with the counter agreeing. initialScrollIndex has the same
+        problem: it only applies on mount.
+
+        A fresh mount per opening is the simplest correct answer, and it also
+        drops the decoded full-size images when the viewer closes rather than
+        holding them for the life of the screen.
+      */}
+      {viewerIndex !== null && (
+        <ImageViewer
+          key={viewerIndex}
+          photos={photos}
+          initialIndex={viewerIndex}
+          visible
+          onClose={() => setViewerIndex(null)}
+        />
       )}
     </View>
   );
