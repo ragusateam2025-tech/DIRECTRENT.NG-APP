@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   pill: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
-    borderRadius: radius.sm,
+    borderRadius: radius.control,
     borderWidth: 1,
     borderColor: colors.borderGold,
   },

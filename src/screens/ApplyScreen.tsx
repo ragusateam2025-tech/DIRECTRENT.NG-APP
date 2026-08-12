@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
   chip: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.xl,
+    borderRadius: radius.control,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     marginRight: spacing.sm,

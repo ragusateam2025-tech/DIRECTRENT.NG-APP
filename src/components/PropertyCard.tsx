@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     left: spacing.md,
     bottom: spacing.sm,
     backgroundColor: 'rgba(26,10,10,0.6)',
-    borderRadius: radius.sm,
+    borderRadius: radius.control,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
   },
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   savingsChip: {
     alignSelf: 'flex-start',
     backgroundColor: colors.successDark,
-    borderRadius: radius.sm,
+    borderRadius: radius.control,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     marginTop: spacing.sm,

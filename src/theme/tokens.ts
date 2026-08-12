@@ -81,6 +81,19 @@ export const spacing = {
 } as const;
 
 export const radius = {
+  /**
+   * Anything with words inside it: buttons, chips, tags, inputs.
+   *
+   * One value, deliberately. The app had grown three different shapes for the
+   * same idea — a near-square button here, a 16px chip there, a 24px pill
+   * somewhere else — and on one screen you could see all three at once, which
+   * reads as three different apps rather than one.
+   *
+   * Nearly square is the choice, taken from the profile controls: it sits with
+   * Outfit's geometric construction, and it keeps the rounded shapes for things
+   * that are genuinely containers rather than labels.
+   */
+  control: 2,
   sm: 8,
   md: 12,
   lg: 16,
