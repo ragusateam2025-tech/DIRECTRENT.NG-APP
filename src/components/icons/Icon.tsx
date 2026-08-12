@@ -268,6 +268,38 @@ export function IconCheck({ size = 24, color = colors.success }: IconProps) {
 }
 
 /**
+ * Show the password — an open eye.
+ *
+ * The pupil is a filled dot rather than a ring, so at 20px it still reads as an
+ * eye rather than as a circle inside an almond.
+ */
+export function IconEye({ size = 24, color = colors.textMuted }: IconProps) {
+  return (
+    <Svg {...baseProps(size, color)}>
+      <Path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12Z" />
+      <Circle cx="12" cy="12" r="2.6" fill={color} />
+    </Svg>
+  );
+}
+
+/**
+ * Hide the password — the same eye, struck through.
+ *
+ * The stroke runs corner to corner rather than closing the lid: a closed eye
+ * and an open one differ by a few pixels of curve at this size, and the two
+ * states have to be told apart at a glance.
+ */
+export function IconEyeOff({ size = 24, color = colors.textMuted }: IconProps) {
+  return (
+    <Svg {...baseProps(size, color)}>
+      <Path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12Z" />
+      <Circle cx="12" cy="12" r="2.6" />
+      <Line x1="4" y1="20" x2="20" y2="4" />
+    </Svg>
+  );
+}
+
+/**
  * Share — something leaving an open container.
  *
  * The tray is drawn open at the top rather than as a closed box, so the arrow

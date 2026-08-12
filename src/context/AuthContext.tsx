@@ -8,11 +8,14 @@ import {
   updatePassword,
   reauthenticateWithCredential,
   sendEmailVerification,
+  sendPasswordResetEmail,
+  reload,
   EmailAuthProvider,
 } from '@react-native-firebase/auth';
 import { doc, getDoc, getDocFromServer, setDoc } from '@react-native-firebase/firestore';
 import { auth, db, COLLECTIONS } from '../lib/firebase';
-import { emailProblem, normaliseEmail } from '../lib/email';
+import { emailProblem, isValidEmailFormat, normaliseEmail } from '../lib/email';
+import { registerForPush, unregisterPush } from '../services/push';
 import type { UserProfile, UserRole } from '../types';
 
 interface AuthContextValue {
@@ -57,6 +60,14 @@ interface AuthContextValue {
    * insisting they have not.
    */
   refreshVerification: () => Promise<boolean>;
+  /**
+   * Emails a link for setting a new password.
+   *
+   * The only way back into an account, and its absence was the difference
+   * between a forgotten password and a lost account — with the listings,
+   * conversations and saved properties inside it.
+   */
+  resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -107,6 +118,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [initialising, setInitialising] = useState(true);
   const [emailVerified, setEmailVerified] = useState(false);
 
+  async function resetPassword(email: string) {
+    const address = normaliseEmail(email);
+
+    if (!isValidEmailFormat(address)) {
+      const error: any = new Error('Enter the email address on your account.');
+      error.code = 'app/email-rejected';
+      throw error;
+    }
+
+    await sendPasswordResetEmail(auth, address);
+  }
+
   async function resendVerification() {
     const user = auth.currentUser;
     if (!user) throw new Error('You are not signed in.');
@@ -120,7 +143,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // reload() pulls the account fresh from Firebase. `user.emailVerified` is
     // a cached value from sign-in time and never changes on its own, so
     // without this the app would insist the address is unconfirmed forever.
-    await user.reload();
+    //
+    // The modular `reload(user)` rather than `user.reload()`: the method form
+    // is the namespaced API, which RNFirebase deprecated in v22 and warns about
+    // on every call. The whole file already uses the modular functions.
+    await reload(user);
     const verified = auth.currentUser?.emailVerified ?? false;
     setEmailVerified(verified);
     return verified;
@@ -143,6 +170,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (snapshot.exists()) {
           setProfile(snapshot.data() as UserProfile);
+
+          // Registered here rather than at sign-in, so it also runs for a
+          // session restored on launch — a token can change when the app is
+          // reinstalled or moved to a new phone, and the old one goes dead
+          // silently.
+          //
+          // Deliberately not awaited and never fatal. It shows a permission
+          // dialog on Android 13+, and neither a refusal nor an emulator
+          // should stand between somebody and their account.
+          registerForPush(user.uid).catch(() => {});
         } else {
           // Auth account exists but the profile document does not yet.
           const fresh: UserProfile = {
@@ -232,6 +269,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function logOut() {
+    // Before signing out, while the rules still permit writing to this user's
+    // own document. Afterwards the write would be rejected, and the token would
+    // sit there sending this account's messages to whoever uses the phone next.
+    const uid = auth.currentUser?.uid;
+    if (uid) await unregisterPush(uid).catch(() => {});
+
     await fbSignOut(auth);
     setProfile(null);
   }
@@ -301,6 +344,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         emailVerified,
         resendVerification,
         refreshVerification,
+        resetPassword,
       }}
     >
       {children}
