@@ -107,10 +107,17 @@ service cloud.firestore {
       // The tenant may edit their own application (to withdraw or resubmit).
       // The landlord may change only the status — accepting or declining — and
       // cannot alter what the tenant wrote.
+      // The tenant owns what they wrote, but not the decision on it. Leaving
+      // status out of their reach closes a gap where a tenant could mark their
+      // own enquiry accepted — no access gained, but a record both sides rely
+      // on turned into a lie. Withdrawing is theirs, and is the one status they
+      // may set.
       allow update: if request.auth != null
                     && (
                       (resource.data.tenantId == request.auth.uid
-                       && request.resource.data.tenantId == resource.data.tenantId)
+                       && request.resource.data.tenantId == resource.data.tenantId
+                       && (request.resource.data.status == resource.data.status
+                           || request.resource.data.status == 'withdrawn'))
                       ||
                       (resource.data.landlordId == request.auth.uid
                        && request.resource.data.diff(resource.data)
@@ -144,11 +151,28 @@ service cloud.firestore {
 
       // Participants update the thread summary as messages are sent, and clear
       // their own unread count. Who is in the conversation cannot change.
+      //
+      // The second branch is the enquiry decision, mirrored onto the thread so
+      // the conversation list can show where each one stands without reading an
+      // application document per row. Only the owner may set it, matching the
+      // applications rule — otherwise the copy could disagree with the record
+      // it is a copy of, and the copy is what everyone reads.
+      //
+      // Without this branch the mirror write was simply denied. It is wrapped
+      // in a catch so the decision itself still succeeded, which meant the
+      // owner saw the badge change, nothing was saved, and the tenant was never
+      // told.
       allow update: if request.auth != null
                     && request.auth.uid in participants()
                     && request.resource.data.participants == resource.data.participants
-                    && request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['lastMessage', 'lastMessageAt', 'lastSenderId', 'unread']);
+                    && (
+                      request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['lastMessage', 'lastMessageAt', 'lastSenderId', 'unread'])
+                      ||
+                      (request.auth.uid == resource.data.landlordId
+                       && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['applicationStatus']))
+                    );
 
       // A conversation is a record for both sides. Neither party erases it.
       allow delete: if false;

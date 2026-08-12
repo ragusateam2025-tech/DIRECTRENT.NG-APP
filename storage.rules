@@ -25,10 +25,22 @@ service firebase.storage {
       // and aims for roughly 300 KB before upload. On Lagos mobile data the
       // difference between 300 KB and a raw 8 MB camera frame decides whether
       // a landlord finishes the form.
-      allow write: if request.auth != null
-                   && request.auth.uid == userId
-                   && request.resource.size < 2 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+      allow create, update: if request.auth != null
+                            && request.auth.uid == userId
+                            && request.resource.size < 2 * 1024 * 1024
+                            && request.resource.contentType.matches('image/.*');
+
+      // Delete is its own rule, and must be.
+      //
+      // `write` covers create, update and delete together, so the size and
+      // content-type checks above were being applied to deletions as well —
+      // and on a delete there is no incoming file, so request.resource is null
+      // and reading .size on it fails. Every deletion was refused.
+      //
+      // Nothing ever reported it: deletePhoto and discardDraft both swallow
+      // storage errors, by design, so that a failed cleanup cannot block an
+      // owner mid-form. The visible symptom was only ever a storage bill.
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
     // Profile pictures, one per account at avatars/{uid}.jpg.

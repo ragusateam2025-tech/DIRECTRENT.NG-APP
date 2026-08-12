@@ -323,6 +323,53 @@ describe('conversations', () => {
     );
   });
 
+  it('lets participants update the thread summary as messages are sent', async () => {
+    await seed(db => setDoc(doc(db, 'conversations/c1'), conversation));
+
+    const db = testEnv.authenticatedContext(TENANT).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'conversations/c1'), {
+        lastMessage: 'Hello',
+        lastMessageAt: 2,
+        lastSenderId: TENANT,
+      }),
+    );
+  });
+
+  it('lets the owner mirror an enquiry decision onto the thread', async () => {
+    // This write was denied until 10 August, so the decision never reached the
+    // conversation and the tenant was never told.
+    await seed(db => setDoc(doc(db, 'conversations/c1'), conversation));
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'conversations/c1'), { applicationStatus: 'accepted' }),
+    );
+  });
+
+  it('refuses a tenant setting the enquiry decision on the thread', async () => {
+    // Matching the applications rule. A copy that can disagree with the record
+    // it copies is worse than no copy, because the copy is what people read.
+    await seed(db => setDoc(doc(db, 'conversations/c1'), conversation));
+
+    const db = testEnv.authenticatedContext(TENANT).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'conversations/c1'), { applicationStatus: 'accepted' }),
+    );
+  });
+
+  it('refuses smuggling other fields alongside a decision', async () => {
+    await seed(db => setDoc(doc(db, 'conversations/c1'), conversation));
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'conversations/c1'), {
+        applicationStatus: 'accepted',
+        tenantName: 'Someone else',
+      }),
+    );
+  });
+
   it('refuses deleting a thread', async () => {
     await seed(db => setDoc(doc(db, 'conversations/c1'), conversation));
 
@@ -378,6 +425,30 @@ describe('applications', () => {
 
     const db = testEnv.authenticatedContext(OWNER).firestore();
     await assertFails(updateDoc(doc(db, 'applications/a1'), { message: 'Something else' }));
+  });
+
+  it('refuses a tenant accepting their own enquiry', async () => {
+    // No access is gained by this, but the status is a record both sides rely
+    // on, and a tenant marking their own enquiry accepted turns it into a lie.
+    await seed(db => setDoc(doc(db, 'applications/a1'), application));
+
+    const db = testEnv.authenticatedContext(TENANT).firestore();
+    await assertFails(updateDoc(doc(db, 'applications/a1'), { status: 'accepted' }));
+  });
+
+  it('lets a tenant withdraw', async () => {
+    // The one status that is theirs: they are taking back their own request.
+    await seed(db => setDoc(doc(db, 'applications/a1'), application));
+
+    const db = testEnv.authenticatedContext(TENANT).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'applications/a1'), { status: 'withdrawn' }));
+  });
+
+  it('lets a tenant correct what they wrote', async () => {
+    await seed(db => setDoc(doc(db, 'applications/a1'), application));
+
+    const db = testEnv.authenticatedContext(TENANT).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'applications/a1'), { message: 'Rewritten' }));
   });
 
   it('refuses deletion by either side', async () => {
