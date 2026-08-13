@@ -68,12 +68,33 @@ export type PushStatus =
  * it is called without awaiting and its failure is swallowed, so nobody — user
  * or developer — could tell a refusal from a bug from an emulator. Somewhere
  * has to say.
+ *
+ * Android has two switches, not one, and they disagree. The POST_NOTIFICATIONS
+ * permission is what `status` reports; separately, Settings has an app-level
+ * "Show notifications" toggle, and turning that off silences everything while
+ * the permission stays granted. Reading only the permission made this screen
+ * say "On" to somebody who would never see a notification — the exact failure
+ * it was added to prevent.
+ *
+ * `android.importance` carries the second switch: NONE means the app is
+ * silenced whatever the permission says.
  */
 export async function pushStatus(): Promise<PushStatus> {
   if (!Device.isDevice) return 'unsupported';
 
   const permission = await Notifications.getPermissionsAsync();
-  if (permission.status === 'granted') return 'on';
+
+  if (permission.status === 'granted') {
+    const importance = permission.android?.importance;
+    // Undefined on iOS and on Android versions that do not report it. Absence
+    // is not evidence of silencing, so only an explicit NONE counts.
+    const silenced =
+      importance !== undefined &&
+      importance === Notifications.AndroidImportance.NONE;
+
+    return silenced ? 'blocked' : 'on';
+  }
+
   return permission.canAskAgain ? 'off' : 'blocked';
 }
 
