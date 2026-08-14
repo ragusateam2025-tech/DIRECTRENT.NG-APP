@@ -5,7 +5,17 @@ const {
   assertFails,
   assertSucceeds,
 } = require('@firebase/rules-unit-testing');
-const { doc, getDoc, setDoc, updateDoc, deleteDoc } = require('firebase/firestore');
+const {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  where,
+} = require('firebase/firestore');
 
 /**
  * What the rules actually permit, checked against the emulator.
@@ -227,6 +237,63 @@ describe('listings — staff attaching tours', () => {
         tour: { provider: 'kuula', embedUrl: 'https://kuula.co/share/x' },
       }),
     );
+  });
+
+  /**
+   * The queue has to be readable, not only writable.
+   *
+   * These are the cases the original tests missed. Staff could attach a tour to
+   * a listing they had no permission to read, so the queue screen failed with
+   * permission-denied on the device while every rules test passed — the tests
+   * asserted the write and never the read that has to come first.
+   *
+   * The draft matters specifically. An owner ticks the tour box during the
+   * wizard, before the listing is published, and Firestore fails an entire
+   * query the moment one document in the result would fail. A single unowned
+   * draft is enough to deny the whole screen.
+   */
+  async function seedQueue() {
+    await seedStaffAndListing();
+    await seed(db =>
+      setDoc(
+        doc(db, 'listings/l2'),
+        listing({ tourRequested: true, status: { listing: 'draft' } }),
+      ),
+    );
+  }
+
+  it('lets staff list the queue, including drafts they do not own', async () => {
+    await seedQueue();
+
+    const db = testEnv.authenticatedContext(STAFF).firestore();
+    await assertSucceeds(
+      getDocs(query(collection(db, 'listings'), where('tourRequested', '==', true))),
+    );
+  });
+
+  it('lets staff read a single unowned draft', async () => {
+    await seedQueue();
+
+    const db = testEnv.authenticatedContext(STAFF).firestore();
+    await assertSucceeds(getDoc(doc(db, 'listings/l2')));
+  });
+
+  it('still refuses an ordinary account the same queue query', async () => {
+    // The read had to be widened for staff without widening it for everybody,
+    // which is the half of this that could quietly go wrong.
+    await seedQueue();
+
+    const db = testEnv.authenticatedContext(STRANGER).firestore();
+    await assertFails(
+      getDocs(query(collection(db, 'listings'), where('tourRequested', '==', true))),
+    );
+  });
+
+  it('still refuses an ordinary account a single unowned draft', async () => {
+    await seedQueue();
+
+    const db = testEnv.authenticatedContext(STRANGER).firestore();
+    await assertFails(getDoc(doc(db, 'listings/l2')));
   });
 });
 

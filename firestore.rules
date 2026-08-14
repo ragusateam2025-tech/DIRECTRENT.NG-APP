@@ -17,12 +17,41 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // A Directrent employee, not a customer.
+    //
+    // Reads the flag off the caller's own user document. `.get('staff', false)`
+    // rather than `.staff` because a missing field would throw rather than
+    // return false, and a rule that errors is a rule nobody can reason about —
+    // it would also fail this way for an auth account whose profile document
+    // has not been written yet.
+    function isStaff() {
+      return request.auth != null
+             && get(/databases/$(database)/documents/users/$(request.auth.uid))
+                  .data.get('staff', false) == true;
+    }
+
     match /listings/{listingId} {
       // A tenant may read a listing only once it is active. A landlord may
       // always read their own, whatever its status.
+      //
+      // Staff may read any of them, and must be able to: the tour queue lists
+      // properties whose owners asked for a shoot, and an owner ticks that box
+      // while the listing is still a draft. Without this the queue query is
+      // refused outright — Firestore fails a list the moment one document in
+      // the result would fail, so a single unowned draft denies the whole
+      // screen.
+      //
+      // This was missing while staff could already *write* a tour, which is the
+      // wrong way round: it let an operator attach a tour to a listing they
+      // were never permitted to look at. The tests covered the write and not
+      // the read, which is exactly how it survived to the device.
+      //
+      // isStaff() last so the two cheap checks short-circuit for everyone who
+      // is not staff, and the user-document read only happens when they fail.
       allow read: if request.auth != null
                   && (resource.data.status.listing == 'active'
-                      || resource.data.ownerId == request.auth.uid);
+                      || resource.data.ownerId == request.auth.uid
+                      || isStaff());
 
       // A landlord may only create a listing owned by themselves. Without
       // this, anyone could create a listing attributed to someone else.
@@ -57,14 +86,7 @@ service cloud.firestore {
       // oneself — and the write may touch nothing but `tour`. A staff account
       // therefore cannot change a rent, a description or an owner, which keeps
       // an operator's phone from being a master key to the catalogue.
-      // `.data.get('staff', false)` rather than `.data.staff`, which throws on
-      // any account that has never been given the field — which is every
-      // ordinary user. The request is denied either way, but a rule that
-      // errors is a rule nobody can reason about, and it would fail the same
-      // way for an auth account whose profile document does not exist yet.
-      allow update: if request.auth != null
-                    && get(/databases/$(database)/documents/users/$(request.auth.uid))
-                         .data.get('staff', false) == true
+      allow update: if isStaff()
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tour']);
 
       // A temporary clause allowing updates to listings with no ownerId lived
