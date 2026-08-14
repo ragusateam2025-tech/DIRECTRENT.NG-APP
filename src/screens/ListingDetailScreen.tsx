@@ -24,6 +24,14 @@ import { hasApplied } from '../services/applications';
 import { useAuth } from '../context/AuthContext';
 import { allImageSources } from '../lib/listingImage';
 import { groupAmenities } from '../data/amenities';
+import {
+  ALTERATION_LABELS,
+  ALTERATION_NOTE,
+  AVAILABLE_FROM_LABELS,
+  MINIMUM_LEASE_LABELS,
+  PET_LABELS,
+  SMOKING_LABELS,
+} from '../data/rules';
 import AnimatedAmenityIcon from '../components/icons/AnimatedAmenityIcon';
 import PhotoGallery from '../components/PhotoGallery';
 import TourBanner from '../components/TourBanner';
@@ -533,6 +541,58 @@ export default function ListingDetailScreen({ route }: Props) {
         </Animated.View>
       )}
 
+      {/*
+        Rules and availability, shown together because they are read together:
+        somebody works out whether they are allowed to live here and whether
+        they can move when they need to, in one pass.
+
+        Hidden entirely for listings written before the wizard asked. An absent
+        answer is not a permissive one, and inventing "Pets welcome" for a
+        listing whose owner never said so would be a lie with a deposit
+        attached.
+      */}
+      {(listing.rules || listing.availability) && (
+        <Animated.View
+          entering={FadeIn.duration(duration.quick)}
+          style={styles.rules}
+        >
+          {!!listing.availability && (
+            <>
+              <Text style={styles.rulesHeading}>Availability</Text>
+              <Text style={styles.ruleLine}>
+                {AVAILABLE_FROM_LABELS[listing.availability.from]}
+              </Text>
+              <Text style={styles.ruleLine}>
+                {MINIMUM_LEASE_LABELS[listing.availability.minimumLeaseMonths]}
+              </Text>
+            </>
+          )}
+
+          {!!listing.rules && (
+            <>
+              <Text style={styles.rulesHeading}>House rules</Text>
+              <Text style={styles.ruleLine}>{PET_LABELS[listing.rules.pets]}</Text>
+              <Text style={styles.ruleLine}>
+                {SMOKING_LABELS[listing.rules.smoking]}
+              </Text>
+              {/* The examples carry this one. "No alterations" is a phrase
+                  people agree to and breach the same week, because nobody
+                  thinks of an air conditioner as an alteration until there is
+                  a hole in the wall. */}
+              <Text style={styles.ruleLine}>
+                {ALTERATION_LABELS[listing.rules.alterations]}
+              </Text>
+              {listing.rules.alterations !== 'allowed' && (
+                <Text style={styles.ruleNote}>{ALTERATION_NOTE}</Text>
+              )}
+              {!!listing.rules.houseRules && (
+                <Text style={styles.ruleLine}>{listing.rules.houseRules}</Text>
+              )}
+            </>
+          )}
+        </Animated.View>
+      )}
+
       <View style={styles.actions}>
         {/* The owner's own listing offers the one thing they came for.
             Until now a published listing could not be changed at all, so a
@@ -805,10 +865,35 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
     color: colors.textSecondary,
     fontFamily: typography.families.body,
-    fontSize: typography.sizes.xs,
+    fontSize: typography.sizes.sm,
   },
   actions: { marginTop: spacing.lg },
   actionSpacer: { height: spacing.sm },
+  rules: { marginTop: spacing.lg },
+  rulesHeading: {
+    color: colors.accentGold,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.xs,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  ruleLine: {
+    color: colors.textSecondary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    marginBottom: 6,
+  },
+  /**
+   * The examples under the alterations rule. Muted because it elaborates the
+   * line above rather than adding a fourth rule of its own.
+   */
+  ruleNote: {
+    color: colors.textMuted,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    lineHeight: 18,
+    marginBottom: 6,
+  },
   stats: {
     backgroundColor: colors.backgroundPaper,
     borderWidth: 1,
@@ -838,7 +923,7 @@ const styles = StyleSheet.create({
   statsNote: {
     color: colors.textMuted,
     fontFamily: typography.families.body,
-    fontSize: typography.sizes.xs,
+    fontSize: typography.sizes.sm,
     lineHeight: 18,
     marginTop: spacing.md,
   },

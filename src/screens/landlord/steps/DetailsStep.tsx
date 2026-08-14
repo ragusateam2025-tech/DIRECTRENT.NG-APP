@@ -9,6 +9,26 @@ import { formatNaira } from '../../../lib/format';
 import { formatNigerianPhone } from '../../../lib/phone';
 import { IconCheck } from '../../../components/icons/Icon';
 import { AMENITY_GROUPS } from '../../../data/amenities';
+import {
+  ALTERATION_LABELS,
+  ALTERATION_NOTE,
+  ALTERATION_OPTIONS,
+  AVAILABLE_FROM_LABELS,
+  AVAILABLE_FROM_OPTIONS,
+  MINIMUM_LEASE_LABELS,
+  MINIMUM_LEASE_OPTIONS,
+  PET_LABELS,
+  PET_OPTIONS,
+  SMOKING_LABELS,
+  SMOKING_OPTIONS,
+} from '../../../data/rules';
+import type {
+  AlterationPolicy,
+  LeaseDuration,
+  MoveInTiming,
+  PetPolicy,
+  SmokingPolicy,
+} from '../../../types';
 import type { DraftListing } from '../AddPropertyScreen';
 
 
@@ -45,6 +65,25 @@ export default function DetailsStep({
   // Null until answered, so "not stated" stays distinct from "no".
   const [ownerOccupied, setOwnerOccupied] = useState<boolean | null>(
     draft.ownerOccupied ?? null,
+  );
+
+  // Sensible defaults rather than nulls. These four have an ordinary answer —
+  // most Lagos flats are no-pets, no-smoking, available now, a year minimum —
+  // and making an owner state the obvious four times is how a wizard gets
+  // abandoned. An owner whose property differs changes them in one tap.
+  const [pets, setPets] = useState<PetPolicy>(draft.rules?.pets ?? 'no_pets');
+  const [smoking, setSmoking] = useState<SmokingPolicy>(
+    draft.rules?.smoking ?? 'no_smoking',
+  );
+  const [alterations, setAlterations] = useState<AlterationPolicy>(
+    draft.rules?.alterations ?? 'ask_first',
+  );
+  const [houseRules, setHouseRules] = useState(draft.rules?.houseRules ?? '');
+  const [availableFrom, setAvailableFrom] = useState<MoveInTiming>(
+    draft.availability?.from ?? 'asap',
+  );
+  const [minimumLease, setMinimumLease] = useState<LeaseDuration>(
+    draft.availability?.minimumLeaseMonths ?? 12,
   );
 
   function toggleAmenity(a: string) {
@@ -85,6 +124,18 @@ export default function DetailsStep({
       // Always a boolean by this point — publishing is blocked above until the
       // question is answered.
       ownerOccupied,
+      rules: {
+        pets,
+        smoking,
+        alterations,
+        // Null, not undefined, so clearing the box clears the published rule
+        // rather than leaving the old text in place on a merged write.
+        houseRules: houseRules.trim() || null,
+      },
+      availability: {
+        from: availableFrom,
+        minimumLeaseMonths: minimumLease,
+      },
     });
   }
 
@@ -126,6 +177,84 @@ export default function DetailsStep({
         value={maxOccupants}
         onChangeText={setMaxOccupants}
       />
+
+      {/*
+        Every one of these is a question a renter currently has to send a
+        message to ask, then wait a day for. Answered once here, they are
+        answered for everybody who ever opens the listing.
+      */}
+      <Text style={styles.heading}>House rules</Text>
+
+      <Text style={styles.groupLabel}>Pets</Text>
+      <View style={styles.chips}>
+        {PET_OPTIONS.map(option => (
+          <Chip
+            key={option}
+            label={PET_LABELS[option]}
+            selected={pets === option}
+            onPress={() => setPets(option)}
+          />
+        ))}
+      </View>
+
+      <Text style={styles.groupLabel}>Smoking</Text>
+      <View style={styles.chips}>
+        {SMOKING_OPTIONS.map(option => (
+          <Chip
+            key={option}
+            label={SMOKING_LABELS[option]}
+            selected={smoking === option}
+            onPress={() => setSmoking(option)}
+          />
+        ))}
+      </View>
+
+      <Text style={styles.groupLabel}>Changes to the property</Text>
+      <Text style={styles.consentNote}>{ALTERATION_NOTE}</Text>
+      <View style={styles.chips}>
+        {ALTERATION_OPTIONS.map(option => (
+          <Chip
+            key={option}
+            label={ALTERATION_LABELS[option]}
+            selected={alterations === option}
+            onPress={() => setAlterations(option)}
+          />
+        ))}
+      </View>
+
+      <TextField
+        label="Anything else (optional)"
+        value={houseRules}
+        onChangeText={setHouseRules}
+        placeholder="Gate closes at 11pm. No commercial use of the flat."
+        autoCapitalize="sentences"
+      />
+
+      <Text style={styles.heading}>Availability</Text>
+
+      <Text style={styles.groupLabel}>When can someone move in?</Text>
+      <View style={styles.chips}>
+        {AVAILABLE_FROM_OPTIONS.map(option => (
+          <Chip
+            key={option}
+            label={AVAILABLE_FROM_LABELS[option]}
+            selected={availableFrom === option}
+            onPress={() => setAvailableFrom(option)}
+          />
+        ))}
+      </View>
+
+      <Text style={styles.groupLabel}>Shortest tenancy you will accept</Text>
+      <View style={styles.chips}>
+        {MINIMUM_LEASE_OPTIONS.map(option => (
+          <Chip
+            key={option}
+            label={MINIMUM_LEASE_LABELS[option]}
+            selected={minimumLease === option}
+            onPress={() => setMinimumLease(option)}
+          />
+        ))}
+      </View>
 
       <View style={styles.summary}>
         <Text style={styles.summaryHeading}>Ready to submit</Text>
@@ -265,7 +394,7 @@ const styles = StyleSheet.create({
   consentNote: {
     color: colors.textMuted,
     fontFamily: typography.families.body,
-    fontSize: typography.sizes.xs,
+    fontSize: typography.sizes.sm,
     lineHeight: 18,
     marginTop: spacing.xs,
     marginBottom: spacing.md,
@@ -306,7 +435,7 @@ const styles = StyleSheet.create({
   reviewNote: {
     color: colors.textMuted,
     fontFamily: typography.families.body,
-    fontSize: typography.sizes.xs,
+    fontSize: typography.sizes.sm,
     lineHeight: 18,
     marginTop: spacing.md,
   },

@@ -12,6 +12,34 @@ export type LeaseDuration = 6 | 12 | 24;
 export type ApplicationStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn';
 
 /**
+ * What a property allows, and when it is free.
+ *
+ * These are the questions a renter asks before spending a morning and a
+ * transport fare crossing Lagos — can I keep a dog, when can I actually move
+ * in, will they take six months. Today every one of them costs a message and a
+ * wait, which is friction the listing could have removed.
+ *
+ * MASTER_PRD §5 defines more fields than these: a separate noise policy, guest
+ * policy and an array of custom rules, plus a maximum lease. Three free-text
+ * boxes asking nearly the same thing produces three empty boxes, so they are
+ * one; and a maximum lease is not a real constraint in a market that advertises
+ * by the year.
+ */
+export type PetPolicy = 'no_pets' | 'cats_only' | 'small_pets' | 'all_pets';
+export type SmokingPolicy = 'no_smoking' | 'outdoor_only' | 'allowed';
+
+/**
+ * What a tenant may change about the building itself.
+ *
+ * Its own field rather than a line of free text, because it is the rule most
+ * often broken and the most expensive to undo. Chasing a wall for an air
+ * conditioner, climbing the roof to mount solar, lifting floor tiles — a tenant
+ * doing any of it uninvited is a repair bill and an argument at move-out, and
+ * "ask first" is what both sides would have agreed to had anyone asked.
+ */
+export type AlterationPolicy = 'ask_first' | 'no_alterations' | 'allowed';
+
+/**
  * A tenant's expression of interest in a property.
  *
  * Denormalises the listing title and the tenant's name deliberately: both
@@ -306,6 +334,36 @@ export interface Listing {
    * as history rather than vanishing the moment the tour lands.
    */
   tourRequested?: boolean;
+  /**
+   * House rules. Absent on listings written before the wizard asked.
+   *
+   * Silence is not permission: a listing that never answered shows nothing
+   * rather than implying pets are welcome.
+   */
+  rules?: {
+    pets: PetPolicy;
+    smoking: SmokingPolicy;
+    alterations: AlterationPolicy;
+    /**
+     * Anything else the owner wants understood before somebody moves in.
+     *
+     * Null when the owner cleared it, because a merged write ignores undefined
+     * and would leave withdrawn text published.
+     */
+    houseRules?: string | null;
+  };
+  /**
+   * When the property is free, in the same words the enquiry form uses.
+   *
+   * Deliberately the tenant's vocabulary rather than a calendar date. An owner
+   * rarely knows the exact day, a date drifts into the past and quietly makes
+   * every listing look stale, and matching MoveInTiming means the owner's
+   * answer and the tenant's question can be compared at a glance.
+   */
+  availability?: {
+    from: MoveInTiming;
+    minimumLeaseMonths: LeaseDuration;
+  };
   basicInfo: {
     title: string;
     propertyType: PropertyType;
