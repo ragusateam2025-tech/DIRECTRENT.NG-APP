@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { tidyMessage } from '../lib/text';
 import { colors, typography, spacing, radius } from '../theme/tokens';
 import { duration } from '../theme/motion';
 import { useAuth } from '../context/AuthContext';
@@ -109,7 +110,11 @@ export default function ChatScreen({ route }: Props) {
 
   async function handleSend() {
     if (!profile || !conversation || sending) return;
-    const text = draft.trim();
+    // Tidied on send, never as they type. Rewriting a sentence under somebody's
+    // cursor mid-word is the behaviour people switch autocorrect off to escape.
+    // This only touches spacing and capitals, and it leaves a short shout as
+    // typed -- in conversation "NO" means something "No" does not.
+    const text = tidyMessage(draft);
     if (!text) return;
 
     setSending(true);

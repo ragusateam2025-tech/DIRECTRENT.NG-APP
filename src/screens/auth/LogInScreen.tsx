@@ -90,6 +90,7 @@ export default function LogInScreen({ navigation }: Props) {
 
           <TextField
             label="Email"
+            autoCorrect={false}
             value={email}
             onChangeText={setEmail}
             placeholder="you@example.com"

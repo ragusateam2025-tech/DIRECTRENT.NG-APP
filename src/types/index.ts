@@ -40,6 +40,25 @@ export type SmokingPolicy = 'no_smoking' | 'outdoor_only' | 'allowed';
 export type AlterationPolicy = 'ask_first' | 'no_alterations' | 'allowed';
 
 /**
+ * The property's electricity band, as set by NERC.
+ *
+ * A band is a guaranteed minimum of supply hours per day, and it is the single
+ * most useful thing a Nigerian renter can be told about power. "24/7 power
+ * supply" as a tick-box means whatever the owner wants it to mean; Band A means
+ * twenty hours, and the owner is quoting a figure the distribution company set
+ * rather than one they chose.
+ *
+ * Band E is included although it is rarely advertised. Leaving it out would
+ * force an owner on four hours a day either to overstate their band or to say
+ * nothing, and the second is what the honest ones would do — which would make
+ * silence mean "Band E" and punish them for it.
+ *
+ * Optional throughout. Plenty of owners genuinely do not know their band, and a
+ * required field would be answered with a guess, which is worse than a blank.
+ */
+export type PowerBand = 'A' | 'B' | 'C' | 'D' | 'E';
+
+/**
  * A tenant's expression of interest in a property.
  *
  * Denormalises the listing title and the tenant's name deliberately: both
@@ -363,6 +382,11 @@ export interface Listing {
    */
   tourRequested?: boolean;
   /**
+   * NERC electricity band. Absent means the owner did not say, which is
+   * different from a bad band and is shown as such.
+   */
+  powerBand?: PowerBand | null;
+  /**
    * Operations' answer to that request.
    *
    * Absent means undecided — the request is new and sits at the top of the
@@ -428,6 +452,25 @@ export interface Listing {
     marketId?: string;
     /** Nigerian state, denormalised for display and coarse filtering. */
     state?: string;
+    /**
+     * A major road the property sits on or near, named — "Lagos-Ibadan
+     * Expressway", "Third Mainland Bridge".
+     *
+     * Genuinely two-sided information, which is why it is worth asking. It
+     * means transport and access, and it also means noise, dust and traffic at
+     * the gate. Renters weigh those differently and cannot weigh either without
+     * being told, so the listing says which road rather than deciding for them.
+     */
+    majorRoad?: string | null;
+    /**
+     * The nearest thing a stranger would recognise — a market, a university, a
+     * bus stop, a well-known junction.
+     *
+     * How Nigerians actually navigate. An address alone rarely locates a place
+     * for somebody who does not already know the area, and "behind Yaba Tech"
+     * does it instantly.
+     */
+    landmark?: string | null;
   };
   media: {
     /**

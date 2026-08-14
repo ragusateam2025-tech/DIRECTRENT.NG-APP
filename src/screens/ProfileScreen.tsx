@@ -334,6 +334,7 @@ export default function ProfileScreen() {
             />
             <TextField
               label="Phone number"
+              autoCorrect={false}
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"

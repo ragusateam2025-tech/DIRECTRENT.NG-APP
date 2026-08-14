@@ -68,6 +68,7 @@ export default function SignUpScreen({ navigation }: Props) {
           />
           <TextField
             label="Email"
+            autoCorrect={false}
             value={email}
             onChangeText={setEmail}
             placeholder="you@example.com"

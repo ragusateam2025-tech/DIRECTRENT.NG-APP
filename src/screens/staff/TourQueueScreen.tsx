@@ -294,6 +294,7 @@ export default function TourQueueScreen() {
               <>
                 <TextField
                   label="Tour link"
+                  autoCorrect={false}
                   value={link}
                   onChangeText={setLink}
                   placeholder="https://…"

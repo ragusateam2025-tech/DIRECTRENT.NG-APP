@@ -24,6 +24,7 @@ import { hasApplied } from '../services/applications';
 import { useAuth } from '../context/AuthContext';
 import { allImageSources } from '../lib/listingImage';
 import { groupAmenities } from '../data/amenities';
+import { POWER_BAND_HOURS, POWER_BAND_SHORT } from '../data/power';
 import {
   ALTERATION_LABELS,
   ALTERATION_NOTE,
@@ -402,6 +403,14 @@ export default function ListingDetailScreen({ route }: Props) {
       >
         <Text style={styles.title}>{listing.basicInfo.title}</Text>
         <Text style={styles.address}>{listing.location.address}</Text>
+        {/* How somebody actually finds the place, and what they will hear when
+            they get there. Both optional, both shown only when answered. */}
+        {!!listing.location.landmark && (
+          <Text style={styles.place}>{listing.location.landmark}</Text>
+        )}
+        {!!listing.location.majorRoad && (
+          <Text style={styles.place}>Off {listing.location.majorRoad}</Text>
+        )}
 
         <View style={styles.priceRow}>
           <Text style={styles.rent}>{formatNaira(listing.pricing.annualRent)}</Text>
@@ -425,6 +434,15 @@ export default function ListingDetailScreen({ route }: Props) {
             written before the question existed — those show nothing rather
             than a third answer, and the fix for them is a data backfill, not
             a label. */}
+        {/* The band answers "will the power hold" with a number the
+            distribution company set, rather than with a tick-box the owner
+            filled in themselves. */}
+        {!!listing.powerBand && (
+          <Fact
+            value={POWER_BAND_SHORT[listing.powerBand]}
+            label={POWER_BAND_HOURS[listing.powerBand]}
+          />
+        )}
         {listing.ownerOccupied !== undefined && (
           <Fact
             value={listing.ownerOccupied ? 'Yes' : 'No'}
@@ -522,10 +540,21 @@ export default function ListingDetailScreen({ route }: Props) {
                   “{listing.tourReview.reason}”
                 </Text>
               )}
-              <Text style={styles.tourStatusBody}>
-                Your listing is unaffected — it stays live with your own
-                photographs.
-              </Text>
+              {/* The consequence of letting a tour request excuse the photo
+                  minimum. If we then decline, this listing has no pictures and
+                  nobody has told the owner — so this is where they are told,
+                  and it is the one branch that asks them to do something. */}
+              {(listing.media?.photos?.length ?? 0) === 0 ? (
+                <Text style={styles.tourStatusAction}>
+                  This listing has no photographs. Add some now — a property
+                  with no pictures is very rarely enquired about.
+                </Text>
+              ) : (
+                <Text style={styles.tourStatusBody}>
+                  Your listing is unaffected — it stays live with your own
+                  photographs.
+                </Text>
+              )}
             </>
           ) : listing.tourReview?.status === 'approved' ? (
             <Text style={styles.tourStatusBody}>
@@ -942,6 +971,13 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     lineHeight: 20,
   },
+  /** The one branch that asks the owner to do something, so it is not muted. */
+  tourStatusAction: {
+    color: colors.accentCoralLight,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.sm,
+    lineHeight: 20,
+  },
   /** The operator's own words, set apart so it reads as quoted, not as ours. */
   tourStatusReason: {
     color: colors.textPrimary,
@@ -949,6 +985,13 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     lineHeight: 20,
     marginVertical: spacing.xs,
+  },
+  /** The landmark and road, directly under the address they qualify. */
+  place: {
+    color: colors.textSecondary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    marginTop: 2,
   },
   rules: { marginTop: spacing.lg },
   rulesHeading: {

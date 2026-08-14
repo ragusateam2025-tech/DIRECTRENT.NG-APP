@@ -10,6 +10,12 @@ import { formatNigerianPhone } from '../../../lib/phone';
 import { IconCheck } from '../../../components/icons/Icon';
 import { AMENITY_GROUPS } from '../../../data/amenities';
 import {
+  POWER_BAND_LABELS,
+  POWER_BAND_NOTE,
+  POWER_BAND_OPTIONS,
+} from '../../../data/power';
+import { toSentenceCase } from '../../../lib/text';
+import {
   ALTERATION_LABELS,
   ALTERATION_NOTE,
   ALTERATION_OPTIONS,
@@ -23,6 +29,7 @@ import {
   SMOKING_OPTIONS,
 } from '../../../data/rules';
 import type {
+  PowerBand,
   AlterationPolicy,
   LeaseDuration,
   MoveInTiming,
@@ -79,6 +86,12 @@ export default function DetailsStep({
     draft.rules?.alterations ?? 'ask_first',
   );
   const [houseRules, setHouseRules] = useState(draft.rules?.houseRules ?? '');
+  // Null until answered, and allowed to stay null. Plenty of owners genuinely
+  // do not know their band, and a required field would be answered with a
+  // guess -- which is worse than a blank, because a guess reads as a fact.
+  const [powerBand, setPowerBand] = useState<PowerBand | null>(
+    draft.powerBand ?? null,
+  );
   const [availableFrom, setAvailableFrom] = useState<MoveInTiming>(
     draft.availability?.from ?? 'asap',
   );
@@ -113,7 +126,11 @@ export default function DetailsStep({
     setError('');
     onPublish({
       details: {
-        description: description.trim(),
+        // Normalised at the step boundary rather than as they type. This only
+        // ever changes case and spacing -- it rescues A DESCRIPTION IN CAPITALS
+        // and one with no capitals at all, and leaves mixed-case writing alone,
+        // because somebody who typed both cases meant both.
+        description: toSentenceCase(description),
         amenities,
         maxOccupants: occupants,
       },
@@ -136,6 +153,9 @@ export default function DetailsStep({
         from: availableFrom,
         minimumLeaseMonths: minimumLease,
       },
+      // Explicit null when unanswered, so clearing it clears the published
+      // value rather than leaving an old band on a merged write.
+      powerBand,
     });
   }
 
@@ -177,6 +197,31 @@ export default function DetailsStep({
         value={maxOccupants}
         onChangeText={setMaxOccupants}
       />
+
+      {/*
+        The band, not a tick-box.
+
+        "24/7 power supply" as an amenity means whatever the person ticking it
+        wants it to mean. A NERC band is a minimum number of hours the
+        distribution company is meant to hold to, which is a figure the owner is
+        quoting rather than one they chose -- and it is the first question a
+        Lagos renter asks.
+      */}
+      <Text style={styles.heading}>Power supply</Text>
+      <Text style={styles.consentNote}>{POWER_BAND_NOTE}</Text>
+      <View style={styles.chips}>
+        {POWER_BAND_OPTIONS.map(band => (
+          <Chip
+            key={band}
+            label={POWER_BAND_LABELS[band]}
+            selected={powerBand === band}
+            // Tapping the chosen band again clears it. Leaving no way back
+            // would make a mis-tap permanent on a question they are allowed
+            // not to answer.
+            onPress={() => setPowerBand(current => (current === band ? null : band))}
+          />
+        ))}
+      </View>
 
       {/*
         Every one of these is a question a renter currently has to send a

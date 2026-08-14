@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, typography, spacing, radius } from '../../../theme/tokens';
 import TextField from '../../../components/TextField';
+import { toTitleCase } from '../../../lib/text';
 import Button from '../../../components/Button';
 import type { DraftListing } from '../AddPropertyScreen';
 import type { PropertyType, FurnishingType } from '../../../types';
@@ -57,7 +58,11 @@ export default function BasicInfoStep({
     setError('');
     onNext({
       basicInfo: {
-        title: title.trim(),
+        // Title-cased at the step boundary, not as they type. A listing title
+        // is a label rather than somebody's prose, so "A ROOM SELF-CONTAINED IN
+        // YABA" is worth fixing -- and rewriting a field under the cursor is
+        // how an editor makes itself hated.
+        title: toTitleCase(title),
         propertyType,
         bedrooms: beds,
         bathrooms: baths,

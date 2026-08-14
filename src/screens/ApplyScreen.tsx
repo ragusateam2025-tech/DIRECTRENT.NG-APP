@@ -8,6 +8,7 @@ import { duration, easing, stagger } from '../theme/motion';
 import Button from '../components/Button';
 import TextField from '../components/TextField';
 import { formatNaira } from '../lib/format';
+import { tidyMessage } from '../lib/text';
 import { calculateSavings } from '../lib/savings';
 import {
   submitApplication,
@@ -121,7 +122,9 @@ export default function ApplyScreen() {
         moveIn,
         leaseMonths,
         occupants: count,
-        message,
+        // Same light touch as chat: this becomes the first message in a
+        // conversation, so it is somebody speaking rather than advert copy.
+        message: tidyMessage(message),
       });
 
       // No role change here.

@@ -11,6 +11,21 @@ interface TextFieldProps {
   secureTextEntry?: boolean;
   autoCapitalize?: 'none' | 'words' | 'sentences';
   keyboardType?: 'default' | 'email-address' | 'phone-pad';
+  /**
+   * Whether the keyboard may check spelling and offer corrections.
+   *
+   * On by default, which also turns the red underline back on: Android draws
+   * those itself, and switching autoCorrect off sets the input's
+   * "no suggestions" flag, which suppresses the underline as well as the
+   * suggestions. This component used to hardcode it off, so nothing typed
+   * anywhere in the app was ever spell-checked.
+   *
+   * Turn it off for anything that is not prose. An email address, a phone
+   * number or a pasted URL has no spelling to check, and a keyboard trying to
+   * correct one does real damage — silently swapping a word inside somebody's
+   * address is far worse than a missing squiggle.
+   */
+  autoCorrect?: boolean;
   error?: string;
 }
 
@@ -22,6 +37,7 @@ export default function TextField({
   secureTextEntry = false,
   autoCapitalize = 'none',
   keyboardType = 'default',
+  autoCorrect = true,
   error,
 }: TextFieldProps) {
   /**
@@ -50,7 +66,10 @@ export default function TextField({
           placeholderTextColor={colors.textMuted}
           secureTextEntry={isPassword && !revealed}
           autoCapitalize={autoCapitalize}
-          autoCorrect={false}
+          // Never on a password. The keyboard would learn it, offer it as a
+          // suggestion later, and show it underlined in the clear.
+          autoCorrect={autoCorrect && !isPassword}
+          spellCheck={autoCorrect && !isPassword}
           keyboardType={keyboardType}
           style={[styles.input, isPassword && styles.inputWithAction, !!error && styles.inputError]}
           accessibilityLabel={label}

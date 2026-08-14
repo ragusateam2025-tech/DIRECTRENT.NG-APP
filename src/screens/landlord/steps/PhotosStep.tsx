@@ -142,7 +142,15 @@ export default function PhotosStep({
   }
 
   function handleNext() {
-    if (photos.length < MIN_PHOTOS) {
+    // Asking us to shoot it lifts the requirement. An owner who has booked a
+    // capture should not have to stage and photograph the place twice, and
+    // insisting would push them into uploading something poor to get past this
+    // screen -- which is the outcome the photo minimum exists to prevent.
+    //
+    // The risk this creates is real and handled where it lands: if we later
+    // decline the shoot, the owner's tour panel tells them the listing now
+    // needs photographs.
+    if (!tourRequested && photos.length < MIN_PHOTOS) {
       setError(`Please add at least ${MIN_PHOTOS} photos. You have ${photos.length}.`);
       return;
     }
@@ -156,9 +164,11 @@ export default function PhotosStep({
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.heading}>Add photos</Text>
       <Text style={styles.sub}>
-        {remaining > 0
-          ? `At least ${MIN_PHOTOS} photos — ${remaining} more to go. The first is the cover.`
-          : `${photos.length} photos added. The first is the cover.`}
+        {tourRequested && photos.length === 0
+          ? 'We are shooting this one, so photos are up to you. Adding a few still helps — your listing goes live before we visit.'
+          : remaining > 0 && !tourRequested
+            ? `At least ${MIN_PHOTOS} photos — ${remaining} more to go. The first is the cover.`
+            : `${photos.length} photos added. The first is the cover.`}
       </Text>
 
       {/*
