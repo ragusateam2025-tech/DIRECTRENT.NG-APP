@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, AppState, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
@@ -39,6 +39,31 @@ export default function AddPropertyScreen() {
 
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<DraftListing>({});
+
+  /**
+   * What the current step has typed but not yet submitted.
+   *
+   * A ref rather than state, deliberately. This is written on every keystroke,
+   * and putting it in state would re-render the whole wizard on each one for no
+   * visible benefit — the step renders from its own local state, not from this.
+   *
+   * It exists because everything used to be captured at the moment Continue was
+   * pressed, so going back a step, or a phone dying, threw away whatever was
+   * half-typed. Now the step reports as it goes and this holds the answer.
+   */
+  const pending = useRef<DraftListing>({});
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * The current draft and step, readable from a delayed callback.
+   *
+   * The debounced save fires up to two seconds after it was scheduled, and the
+   * background handler fires whenever Android decides. Both would otherwise
+   * close over whatever draft and step existed when they were created and write
+   * those — silently reverting a step transition that happened in between.
+   */
+  const draftRef = useRef<DraftListing>({});
+  const stepRef = useRef(0);
   const [loading, setLoading] = useState(!!existingDraftId);
   const [busy, setBusy] = useState(false);
 
@@ -63,8 +88,9 @@ export default function AddPropertyScreen() {
         if (!active || !found) return;
         setDraft(found);
         setOpenedAs(found.status?.listing ?? 'draft');
-        // Resume where they left off rather than at the beginning.
-        setStep(furthestCompletedStep(found));
+        // Where they actually were, falling back to inference for drafts
+        // saved before the step was recorded.
+        setStep(found.wizardStep ?? furthestCompletedStep(found));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -74,6 +100,33 @@ export default function AddPropertyScreen() {
       active = false;
     };
   }, [existingDraftId]);
+
+  /**
+   * Saves when the app goes to the background, and when this screen goes away.
+   *
+   * The debounce means up to two seconds of typing is only in memory at any
+   * moment. Backgrounding is the last warning Android gives before a process
+   * can be killed for memory, so it is the moment to write rather than wait.
+   */
+  const flushRef = useRef(flush);
+  flushRef.current = flush;
+  draftRef.current = draft;
+  stepRef.current = step;
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', next => {
+      if (next !== 'active') flushRef.current();
+    });
+
+    // Empty deps on purpose, reached through a ref. Without them the cleanup
+    // runs after every render, and the cleanup writes — which would turn each
+    // keystroke into a Firestore write, the exact thing the debounce exists to
+    // prevent.
+    return () => {
+      sub.remove();
+      flushRef.current();
+    };
+  }, []);
 
   /**
    * Keeps the working copy, and autosaves it while a listing is being created.
@@ -100,13 +153,69 @@ export default function AddPropertyScreen() {
     }
   }
 
+  /**
+   * Writes whatever the current step has typed, without waiting for Continue.
+   *
+   * Debounced, because this is called on every keystroke and a Firestore write
+   * per character would be both slow and expensive. Two seconds is short enough
+   * that a phone dying loses a few words rather than a step.
+   *
+   * Skipped entirely while editing a published listing, for the same reason the
+   * step-by-step autosave is: a live property is being read by tenants right
+   * now, and dribbling half an edit into it would show them a changed rent
+   * beside the old description. In-progress work is still held in memory, so
+   * going back a step keeps it — it just never reaches the server until the
+   * owner deliberately saves.
+   */
+  function scheduleSave() {
+    if (!profile || editingPublished) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      flush();
+    }, 2000);
+  }
+
+  /** Writes the buffer now. Used on the way out, where there is no time to wait. */
+  function flush() {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    if (!profile || editingPublished) return;
+
+    const merged = {
+      ...draftRef.current,
+      ...pending.current,
+      wizardStep: stepRef.current,
+    };
+    saveListingProgress(listingId.current, profile.uid, profile.fullName, merged).catch(
+      () => {
+        // A failed autosave must never block someone mid-form. The next save
+        // writes the whole draft again, so one lost write is recoverable.
+      },
+    );
+  }
+
+  /** Called by each step as its fields change. */
+  function handleChange(patch: DraftListing) {
+    pending.current = { ...pending.current, ...patch };
+    scheduleSave();
+  }
+
   async function handleNext(patch: DraftListing) {
-    await persist(patch);
+    pending.current = {};
+    await persist({ ...patch, wizardStep: Math.min(step + 1, STEPS.length - 1) });
     if (step < STEPS.length - 1) setStep(step + 1);
   }
 
   function handleBack() {
     if (step > 0) {
+      // Fold the half-finished step into the draft on the way out, so coming
+      // forward again finds it exactly as it was left. This is the case that
+      // used to lose everything typed since the last Continue.
+      const carried = pending.current;
+      pending.current = {};
+      setDraft(current => ({ ...current, ...carried }));
       setStep(step - 1);
       return;
     }
@@ -276,8 +385,12 @@ export default function AddPropertyScreen() {
         entering={FadeInDown.duration(duration.quick).easing(easing.out)}
         style={styles.stepBody}
       >
-        {step === 0 && <BasicInfoStep draft={draft} onNext={handleNext} />}
-        {step === 1 && <LocationStep draft={draft} onNext={handleNext} />}
+        {step === 0 && (
+          <BasicInfoStep draft={draft} onNext={handleNext} onChange={handleChange} />
+        )}
+        {step === 1 && (
+          <LocationStep draft={draft} onNext={handleNext} onChange={handleChange} />
+        )}
         {step === 2 && (
           <PhotosStep
             draft={draft}
@@ -288,7 +401,9 @@ export default function AddPropertyScreen() {
             deleteFromStorage={!editingPublished}
           />
         )}
-        {step === 3 && <PricingStep draft={draft} onNext={handleNext} />}
+        {step === 3 && (
+          <PricingStep draft={draft} onNext={handleNext} onChange={handleChange} />
+        )}
         {step === 4 && (
           <DetailsStep
             draft={draft}
@@ -296,6 +411,7 @@ export default function AddPropertyScreen() {
             publishing={busy}
             submitLabel={editingPublished ? 'Save changes' : 'Publish listing'}
             submittingLabel={editingPublished ? 'Saving…' : 'Publishing…'}
+            onChange={handleChange}
           />
         )}
       </Animated.View>

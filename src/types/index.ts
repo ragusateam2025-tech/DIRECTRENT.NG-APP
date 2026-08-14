@@ -382,6 +382,20 @@ export interface Listing {
    */
   tourRequested?: boolean;
   /**
+   * Which step of the wizard this draft was last on.
+   *
+   * Wizard bookkeeping rather than a property of the building, and it lives
+   * here because it has to survive the app being killed — which is the whole
+   * point of it. Meaningful only while the status is 'draft'; a published
+   * listing keeps whatever value it last had and nothing reads it.
+   *
+   * The step used to be inferred from which fields were filled in. That works
+   * until somebody is halfway through a step with nothing complete, at which
+   * point inference sends them back to the start of work they have already
+   * done.
+   */
+  wizardStep?: number;
+  /**
    * NERC electricity band. Absent means the owner did not say, which is
    * different from a bad band and is shown as such.
    */

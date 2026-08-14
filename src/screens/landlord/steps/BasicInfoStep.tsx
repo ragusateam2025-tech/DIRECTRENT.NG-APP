@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, typography, spacing, radius } from '../../../theme/tokens';
 import TextField from '../../../components/TextField';
@@ -24,9 +24,15 @@ const FURNISHING: Array<{ value: FurnishingType; label: string }> = [
 export default function BasicInfoStep({
   draft,
   onNext,
+  onChange,
 }: {
   draft: DraftListing;
   onNext: (patch: DraftListing) => void;
+  /**
+   * Called as fields change, so half-finished work survives Back and a phone
+   * dying. Optional, so the step still renders anywhere it is not wired up.
+   */
+  onChange?: (patch: DraftListing) => void;
 }) {
   const [title, setTitle] = useState(draft.basicInfo?.title ?? '');
   const [propertyType, setPropertyType] = useState<PropertyType>(
@@ -38,6 +44,31 @@ export default function BasicInfoStep({
     draft.basicInfo?.furnishing ?? 'unfurnished',
   );
   const [error, setError] = useState('');
+
+  /**
+   * Reports what is typed as it is typed, so nothing is lost on the way back.
+   *
+   * Everything used to be captured when Continue was pressed, which meant
+   * stepping back — or a phone dying — threw away the whole step. The parent
+   * holds this in memory and writes it on a debounce.
+   *
+   * Raw values, deliberately unnormalised. Title case and sentence case are
+   * applied when the step is submitted; storing the tidied version here would
+   * mean somebody stepping back found their words already rewritten.
+   */
+  useEffect(() => {
+    onChange?.({
+      basicInfo: {
+        title,
+        propertyType,
+        // Guarded, because these are strings while being typed and an empty
+        // field parses to NaN — which Firestore rejects outright.
+        bedrooms: Number.parseInt(bedrooms, 10) || 1,
+        bathrooms: Number.parseInt(bathrooms, 10) || 1,
+        furnishing,
+      },
+    });
+  }, [title, propertyType, bedrooms, bathrooms, furnishing, onChange]);
 
   function handleNext() {
     if (title.trim().length < 10) {

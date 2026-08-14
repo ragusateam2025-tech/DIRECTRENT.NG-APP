@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, typography, spacing } from '../../../theme/tokens';
 import { defaultMarket } from '../../../data/markets';
@@ -20,9 +20,15 @@ const AREAS: Array<{ area: string; lga: string }> = [
 export default function LocationStep({
   draft,
   onNext,
+  onChange,
 }: {
   draft: DraftListing;
   onNext: (patch: DraftListing) => void;
+  /**
+   * Called as fields change, so half-finished work survives Back and a phone
+   * dying. Optional, so the step still renders anywhere it is not wired up.
+   */
+  onChange?: (patch: DraftListing) => void;
 }) {
   const [address, setAddress] = useState(draft.location?.address ?? '');
   const [area, setArea] = useState(draft.location?.area ?? AREAS[0].area);
@@ -34,6 +40,33 @@ export default function LocationStep({
   const [majorRoad, setMajorRoad] = useState(draft.location?.majorRoad ?? '');
   const [landmark, setLandmark] = useState(draft.location?.landmark ?? '');
   const [error, setError] = useState('');
+
+  /**
+   * Reports what is typed as it is typed, so nothing is lost on the way back.
+   *
+   * Everything used to be captured when Continue was pressed, which meant
+   * stepping back — or a phone dying — threw away the whole step. The parent
+   * holds this in memory and writes it on a debounce.
+   *
+   * Raw values, deliberately unnormalised. Title case and sentence case are
+   * applied when the step is submitted; storing the tidied version here would
+   * mean somebody stepping back found their words already rewritten.
+   */
+  useEffect(() => {
+    const match = AREAS.find(a => a.area === area) ?? AREAS[0];
+    const market = defaultMarket();
+    onChange?.({
+      location: {
+        address,
+        area: match.area,
+        lga: match.lga,
+        marketId: market.id,
+        state: market.state,
+        majorRoad: majorRoad || null,
+        landmark: landmark || null,
+      },
+    });
+  }, [address, area, majorRoad, landmark, onChange]);
 
   function handleNext() {
     if (address.trim().length < 10) {

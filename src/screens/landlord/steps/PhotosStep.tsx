@@ -119,6 +119,58 @@ export default function PhotosStep({
     setProgress(0);
   }
 
+  /**
+   * Moves a photo, and saves the new order straight away.
+   *
+   * Order is the whole point of this: the first photo is the cover, and the
+   * cover is most of what decides whether anybody opens the listing at all.
+   * Until now it was whichever picture happened to upload first.
+   *
+   * Chosen from a menu rather than by dragging. Dragging a grid on a phone is
+   * fiddly to do and easy to do by accident, and this has to work for somebody
+   * standing in a flat holding the phone in one hand.
+   */
+  async function movePhoto(from: number, to: number) {
+    if (to < 0 || to >= photos.length || from === to) return;
+
+    const next = [...photos];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+
+    setPhotos(next);
+    await onChange({ media: { ...draft.media, photos: next } });
+  }
+
+  /**
+   * The menu behind a tap on a photo.
+   *
+   * "Make cover" is listed first and separately from moving, even though it is
+   * a move to position one, because it is the thing owners actually want and
+   * nobody thinks of it as reordering.
+   */
+  function photoActions(index: number) {
+    const options: { text: string; onPress?: () => void; style?: 'destructive' | 'cancel' }[] = [];
+
+    if (index > 0) {
+      options.push({ text: 'Make cover photo', onPress: () => movePhoto(index, 0) });
+      options.push({ text: 'Move earlier', onPress: () => movePhoto(index, index - 1) });
+    }
+    if (index < photos.length - 1) {
+      options.push({ text: 'Move later', onPress: () => movePhoto(index, index + 1) });
+    }
+
+    options.push({ text: 'Remove', style: 'destructive', onPress: () => confirmRemove(index) });
+    options.push({ text: 'Cancel', style: 'cancel' });
+
+    Alert.alert(
+      index === 0 ? 'Cover photo' : `Photo ${index + 1}`,
+      index === 0
+        ? 'This is the first photo tenants see.'
+        : undefined,
+      options,
+    );
+  }
+
   function confirmRemove(index: number) {
     Alert.alert('Remove this photo?', undefined, [
       { text: 'Cancel', style: 'cancel' },
@@ -191,9 +243,12 @@ export default function PhotosStep({
         {photos.map((uri, index) => (
           <Animated.View key={uri} entering={FadeIn.duration(duration.quick)}>
             <Pressable
+              onPress={() => photoActions(index)}
               onLongPress={() => confirmRemove(index)}
-              accessibilityRole="image"
-              accessibilityLabel={`Photo ${index + 1}${index === 0 ? ', cover photo' : ''}. Long press to remove.`}
+              accessibilityRole="button"
+              accessibilityLabel={`Photo ${index + 1} of ${photos.length}${
+                index === 0 ? ', cover photo' : ''
+              }. Tap to reorder or remove.`}
               style={styles.tile}
             >
               <Image source={{ uri }} style={styles.tileImage} resizeMode="cover" />
@@ -232,8 +287,9 @@ export default function PhotosStep({
       )}
 
       <Text style={styles.note}>
-        Photos are resized before upload to keep them quick to send and quick for
-        tenants to load. Long press a photo to remove it.
+        Tap a photo to move it or make it the cover. The first photo is what
+        tenants see in Browse, so lead with the best room. Photos are resized
+        before upload to keep them quick to send and quick to load.
       </Text>
 
       {/*

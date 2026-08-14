@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, typography, spacing } from '../../../theme/tokens';
 import TextField from '../../../components/TextField';
@@ -16,9 +16,15 @@ const MAX_RENT = 50000000;
 export default function PricingStep({
   draft,
   onNext,
+  onChange,
 }: {
   draft: DraftListing;
   onNext: (patch: DraftListing) => void;
+  /**
+   * Called as fields change, so half-finished work survives Back and a phone
+   * dying. Optional, so the step still renders anywhere it is not wired up.
+   */
+  onChange?: (patch: DraftListing) => void;
 }) {
   const [rent, setRent] = useState(
     draft.pricing?.annualRent ? String(draft.pricing.annualRent) : '',
@@ -28,6 +34,29 @@ export default function PricingStep({
     draft.pricing?.serviceCharge ? String(draft.pricing.serviceCharge) : '0',
   );
   const [error, setError] = useState('');
+
+  /**
+   * Reports what is typed as it is typed, so nothing is lost on the way back.
+   *
+   * Everything used to be captured when Continue was pressed, which meant
+   * stepping back — or a phone dying — threw away the whole step. The parent
+   * holds this in memory and writes it on a debounce.
+   *
+   * Raw values, deliberately unnormalised. Title case and sentence case are
+   * applied when the step is submitted; storing the tidied version here would
+   * mean somebody stepping back found their words already rewritten.
+   */
+  useEffect(() => {
+    const parsedRent = Number.parseInt(rent.replace(/\D/g, ''), 10);
+    const parsedService = Number.parseInt(serviceCharge.replace(/\D/g, ''), 10);
+    onChange?.({
+      pricing: {
+        annualRent: Number.isNaN(parsedRent) ? 0 : parsedRent,
+        cautionDepositMonths: caution,
+        serviceCharge: Number.isNaN(parsedService) ? 0 : parsedService,
+      },
+    });
+  }, [rent, caution, serviceCharge, onChange]);
 
   const parsedRent = parseInt(rent.replace(/[^0-9]/g, ''), 10);
   const rentValid = !Number.isNaN(parsedRent) && parsedRent >= MIN_RENT && parsedRent <= MAX_RENT;

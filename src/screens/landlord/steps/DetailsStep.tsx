@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View, Pressable} from 'react-native';
 import { colors, typography, spacing, radius } from '../../../theme/tokens';
 import TextField from '../../../components/TextField';
@@ -52,12 +52,18 @@ export default function DetailsStep({
    */
   submitLabel = 'Publish listing',
   submittingLabel = 'Publishing…',
+  onChange,
 }: {
   draft: DraftListing;
   onPublish: (patch: DraftListing) => void;
   publishing: boolean;
   submitLabel?: string;
   submittingLabel?: string;
+  /**
+   * Called as fields change, so half-finished work survives Back and a phone
+   * dying. Optional, so the step still renders anywhere it is not wired up.
+   */
+  onChange?: (patch: DraftListing) => void;
 }) {
   const { profile } = useAuth();
   const [description, setDescription] = useState(draft.details?.description ?? '');
@@ -98,6 +104,42 @@ export default function DetailsStep({
   const [minimumLease, setMinimumLease] = useState<LeaseDuration>(
     draft.availability?.minimumLeaseMonths ?? 12,
   );
+
+  /**
+   * Reports what is typed as it is typed, so nothing is lost on the way back.
+   *
+   * Raw values, deliberately unnormalised — sentence case is applied on
+   * publish, and storing the tidied text here would mean somebody stepping back
+   * found their words already rewritten.
+   */
+  useEffect(() => {
+    onChange?.({
+      details: {
+        description,
+        amenities,
+        // Guarded: the field is a string while being typed and an empty one
+        // parses to NaN, which Firestore rejects outright.
+        maxOccupants: Number.parseInt(maxOccupants, 10) || 1,
+      },
+      ownerOccupied: ownerOccupied ?? undefined,
+      powerBand,
+      rules: { pets, smoking, alterations, houseRules: houseRules.trim() || null },
+      availability: { from: availableFrom, minimumLeaseMonths: minimumLease },
+    });
+  }, [
+    description,
+    amenities,
+    maxOccupants,
+    ownerOccupied,
+    powerBand,
+    pets,
+    smoking,
+    alterations,
+    houseRules,
+    availableFrom,
+    minimumLease,
+    onChange,
+  ]);
 
   function toggleAmenity(a: string) {
     setAmenities(prev => (prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]));
