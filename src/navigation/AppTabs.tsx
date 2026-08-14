@@ -69,7 +69,15 @@ const stackScreenOptions = {
 function BrowseStack() {
   return (
     <Stack.Navigator screenOptions={stackScreenOptions}>
-      <Stack.Screen name="BrowseList" component={BrowseScreen} options={{ title: 'Browse' }} />
+      {/* No header. The tab bar already says Browse, and the screen opens with
+          the hero, a property count and a search field — a bar reading "Browse"
+          above all three is a fourth way of saying where you are. Matches the
+          Messages and Profile roots, which drop theirs for the same reason. */}
+      <Stack.Screen
+        name="BrowseList"
+        component={BrowseScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen
         name="ListingDetail"
         component={ListingDetailScreen}

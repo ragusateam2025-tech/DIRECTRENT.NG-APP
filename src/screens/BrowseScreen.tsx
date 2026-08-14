@@ -6,6 +6,7 @@ import { colors, typography, spacing } from '../theme/tokens';
 import PropertyCard from '../components/PropertyCard';
 import EmptyState from '../components/EmptyState';
 import SearchBar from '../components/SearchBar';
+import HomeHero from '../components/HomeHero';
 import FilterSheet from '../components/FilterSheet';
 import { PropertyCardSkeleton } from '../components/Skeleton';
 import { fetchListings } from '../services/listings';
@@ -37,6 +38,19 @@ export default function BrowseScreen({ navigation }: Props) {
   const visible = useMemo(() => applyFilters(listings, filters), [listings, filters]);
   const areas = useMemo(() => availableAreas(), []);
 
+  /**
+   * Areas the search hint offers, taken from the properties on screen rather
+   * than from the market registry.
+   *
+   * The registry lists every area we have opened, including ones nobody has
+   * listed in yet. Suggesting one of those hands the user a search that returns
+   * nothing, which reads as a broken app rather than an empty area.
+   */
+  const suggestions = useMemo(
+    () => [...new Set(listings.map(l => l.location?.area).filter(Boolean))] as string[],
+    [listings],
+  );
+
   const load = useCallback(async () => {
     setError('');
     try {
@@ -63,7 +77,7 @@ export default function BrowseScreen({ navigation }: Props) {
   // when the real cards arrive, and they read as "content is coming".
   if (loading) {
     return (
-      <SafeAreaView style={styles.wrapper} edges={['left', 'right']}>
+      <SafeAreaView style={styles.wrapper} edges={['top', 'left', 'right']}>
         <View style={styles.list}>
           <View style={styles.header}>
             <Text style={styles.heading}>Rent directly in Lagos</Text>
@@ -79,7 +93,7 @@ export default function BrowseScreen({ navigation }: Props) {
   const filtering = hasActiveFilters(filters);
 
   return (
-    <SafeAreaView style={styles.wrapper} edges={['left', 'right']}>
+    <SafeAreaView style={styles.wrapper} edges={['top', 'left', 'right']}>
       <FlatList
         data={visible}
         keyExtractor={item => item.id}
@@ -94,7 +108,21 @@ export default function BrowseScreen({ navigation }: Props) {
         }
         ListHeaderComponent={
           <View style={styles.header}>
-            <Text style={styles.heading}>Rent directly in Lagos</Text>
+            {/*
+              The pitch, and then out of the way.
+
+              Someone who has started searching has already decided to look for
+              a flat; arguing the case for the app above their results would be
+              selling to a customer who has bought. It comes back when they
+              clear the search, which is also when they are least sure what to
+              do next.
+            */}
+            {filtering ? (
+              <Text style={styles.heading}>Rent directly in Lagos</Text>
+            ) : (
+              <HomeHero />
+            )}
+
             <Text style={styles.sub}>
               {filtering
                 ? `${visible.length} of ${listings.length} ${listings.length === 1 ? 'property' : 'properties'}`
@@ -108,6 +136,7 @@ export default function BrowseScreen({ navigation }: Props) {
                 onChangeText={query => setFilters(f => ({ ...f, query }))}
                 onOpenFilters={() => setSheetOpen(true)}
                 activeFilters={activeFilterCount(filters)}
+                suggestions={suggestions}
               />
             </View>
           </View>
