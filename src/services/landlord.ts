@@ -19,12 +19,18 @@ import {
 import { db, app, COLLECTIONS } from '../lib/firebase';
 import { compressPhoto } from '../lib/photos';
 import { photoStoragePath } from '../lib/photoPath';
+import { MIN_PHOTOS, whatIsMissing } from '../lib/publishChecks';
 import type { Listing, LandlordListing, ListingStatus } from '../types';
 
 const storage = getStorage(app);
 
-/** Minimum photos before a listing may be published. */
-export const MIN_PHOTOS = 5;
+/**
+ * Re-exported so the wizard's steps keep importing it from here.
+ *
+ * It lives with the publish checks now, because that is the rule it belongs to
+ * and keeping the two apart is how they drifted.
+ */
+export { MIN_PHOTOS } from '../lib/publishChecks';
 
 /**
  * Reserves a document ID before the wizard starts.
@@ -204,22 +210,8 @@ export async function publishListing(
   listingId: string,
   listing: Partial<Listing>,
 ): Promise<PublishResult> {
-  const photos = listing.media?.photos ?? [];
-
-  if (photos.length < MIN_PHOTOS) {
-    return {
-      ok: false,
-      reason: `Add at least ${MIN_PHOTOS} photos before publishing. You have ${photos.length}.`,
-    };
-  }
-
-  if (!listing.basicInfo?.title || listing.basicInfo.title.trim().length < 10) {
-    return { ok: false, reason: 'Give the property a title of at least 10 characters.' };
-  }
-
-  if (!listing.pricing?.annualRent || listing.pricing.annualRent <= 0) {
-    return { ok: false, reason: 'Set an annual rent.' };
-  }
+  const missing = whatIsMissing(listing);
+  if (missing) return { ok: false, reason: missing };
 
   // Goes straight live.
   //
