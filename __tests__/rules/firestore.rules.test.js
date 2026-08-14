@@ -407,6 +407,136 @@ describe('conversations', () => {
   });
 });
 
+describe('listing interest counters', () => {
+  beforeEach(async () => {
+    await seed(db => setDoc(doc(db, 'listings/l1'), listing()));
+  });
+
+  it('lets someone record their own view', async () => {
+    const db = testEnv.authenticatedContext(TENANT).firestore();
+    await assertSucceeds(setDoc(doc(db, `listings/l1/views/${TENANT}`), { at: 1 }));
+  });
+
+  it('refuses recording a view as somebody else', async () => {
+    // The whole reason these are documents rather than a counter: a counter
+    // has to be writable by every viewer, and a number anyone can set is a
+    // number nobody should believe.
+    const db = testEnv.authenticatedContext(TENANT).firestore();
+    await assertFails(setDoc(doc(db, `listings/l1/views/${STRANGER}`), { at: 1 }));
+  });
+
+  it('lets the owner read the interest in their property', async () => {
+    await seed(db => setDoc(doc(db, `listings/l1/views/${TENANT}`), { at: 1 }));
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertSucceeds(getDoc(doc(db, `listings/l1/views/${TENANT}`)));
+  });
+
+  it('refuses a stranger reading who looked at a property', async () => {
+    // Who is looking at which flat is nobody else's business.
+    await seed(db => setDoc(doc(db, `listings/l1/views/${TENANT}`), { at: 1 }));
+
+    const db = testEnv.authenticatedContext(STRANGER).firestore();
+    await assertFails(getDoc(doc(db, `listings/l1/views/${TENANT}`)));
+  });
+
+  it('refuses deleting a view, so interest cannot be erased', async () => {
+    await seed(db => setDoc(doc(db, `listings/l1/views/${TENANT}`), { at: 1 }));
+
+    const db = testEnv.authenticatedContext(TENANT).firestore();
+    await assertFails(deleteDoc(doc(db, `listings/l1/views/${TENANT}`)));
+  });
+
+  it('lets someone unsave, which removes their row', async () => {
+    // The one counter that may go down, because unsaving is a real action.
+    await seed(db => setDoc(doc(db, `listings/l1/savedBy/${TENANT}`), { at: 1 }));
+
+    const db = testEnv.authenticatedContext(TENANT).firestore();
+    await assertSucceeds(deleteDoc(doc(db, `listings/l1/savedBy/${TENANT}`)));
+  });
+
+  it('refuses removing somebody else’s save', async () => {
+    await seed(db => setDoc(doc(db, `listings/l1/savedBy/${TENANT}`), { at: 1 }));
+
+    const db = testEnv.authenticatedContext(STRANGER).firestore();
+    await assertFails(deleteDoc(doc(db, `listings/l1/savedBy/${TENANT}`)));
+  });
+
+  it('records an enquiry once per person', async () => {
+    const db = testEnv.authenticatedContext(TENANT).firestore();
+    await assertSucceeds(setDoc(doc(db, `listings/l1/enquiries/${TENANT}`), { at: 1 }));
+    // Enquiring again rewrites the same document rather than adding another.
+    await assertSucceeds(setDoc(doc(db, `listings/l1/enquiries/${TENANT}`), { at: 2 }));
+  });
+});
+
+describe('payments', () => {
+  const payment = {
+    id: 'p1',
+    listingId: 'l1',
+    listingTitle: 'Two bedroom flat',
+    tenantId: TENANT,
+    ownerId: OWNER,
+    amount: 2020000,
+    currency: 'NGN',
+    status: 'pending',
+    createdAt: 1,
+  };
+
+  it('lets the tenant read their own payment', async () => {
+    await seed(db => setDoc(doc(db, 'payments/p1'), payment));
+
+    const db = testEnv.authenticatedContext(TENANT).firestore();
+    await assertSucceeds(getDoc(doc(db, 'payments/p1')));
+  });
+
+  it('lets the owner read a payment against their property', async () => {
+    // Being told you have been paid is the point.
+    await seed(db => setDoc(doc(db, 'payments/p1'), payment));
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertSucceeds(getDoc(doc(db, 'payments/p1')));
+  });
+
+  it('refuses anyone else reading it', async () => {
+    await seed(db => setDoc(doc(db, 'payments/p1'), payment));
+
+    const db = testEnv.authenticatedContext(STRANGER).firestore();
+    await assertFails(getDoc(doc(db, 'payments/p1')));
+  });
+
+  it('refuses a tenant creating their own payment record', async () => {
+    // Amounts are decided server-side, from the listing. A client-written
+    // payment is a client-chosen price.
+    const db = testEnv.authenticatedContext(TENANT).firestore();
+    await assertFails(setDoc(doc(db, 'payments/p2'), { ...payment, id: 'p2' }));
+  });
+
+  it('refuses a tenant marking their own rent paid', async () => {
+    // The single most valuable write to forge in the whole database.
+    await seed(db => setDoc(doc(db, 'payments/p1'), payment));
+
+    const db = testEnv.authenticatedContext(TENANT).firestore();
+    await assertFails(updateDoc(doc(db, 'payments/p1'), { status: 'paid' }));
+  });
+
+  it('refuses the owner editing the amount', async () => {
+    await seed(db => setDoc(doc(db, 'payments/p1'), payment));
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertFails(updateDoc(doc(db, 'payments/p1'), { amount: 99 }));
+  });
+
+  it('refuses deletion, so a receipt cannot be made to disappear', async () => {
+    await seed(db => setDoc(doc(db, 'payments/p1'), payment));
+
+    for (const uid of [TENANT, OWNER]) {
+      const db = testEnv.authenticatedContext(uid).firestore();
+      await assertFails(deleteDoc(doc(db, 'payments/p1')));
+    }
+  });
+});
+
 describe('applications', () => {
   const application = {
     id: 'a1',

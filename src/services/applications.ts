@@ -13,6 +13,7 @@ import {
   sendMessage,
   setConversationApplicationStatus,
 } from './messages';
+import { recordListingEnquiry } from './analytics';
 import type {
   Application,
   ApplicationStatus,
@@ -101,6 +102,10 @@ export async function submitApplication(
   };
 
   await setDoc(doc(db, COLLECTIONS.applications, id), application);
+
+  // Counted for the owner, keyed by tenant so enquiring twice is still one
+  // interested person. Never allowed to fail the enquiry.
+  await recordListingEnquiry(listing.id, tenant.uid).catch(() => {});
 
   const conversation = await ensureConversationFromApplication(
     application,

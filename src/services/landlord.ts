@@ -134,6 +134,24 @@ export async function deletePhoto(downloadUrl: string): Promise<void> {
 }
 
 /**
+ * Takes a property off the market, or puts it back.
+ *
+ * The status already existed in the model with no way to reach it, so an owner
+ * whose flat had been let could only delete the listing — losing the
+ * photographs, the history and every conversation's reason for existing, to
+ * express something as ordinary as "this one is gone".
+ *
+ * Nothing else changes. A rented listing keeps its photos, its price and its
+ * threads; the security rules already hide anything not `active` from tenants,
+ * so this is the whole mechanism.
+ */
+export async function setListingRented(listingId: string, rented: boolean): Promise<void> {
+  await updateDoc(doc(db, COLLECTIONS.listings, listingId), {
+    'status.listing': rented ? ('rented' as ListingStatus) : ('active' as ListingStatus),
+  });
+}
+
+/**
  * Removes a listing and every photograph uploaded for it.
  *
  * Deleting the document alone would leave the photographs paid for and

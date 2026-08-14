@@ -71,6 +71,64 @@ service cloud.firestore {
       // here until 10 August 2026, so the seeded documents could be given their
       // market, state and owner. The backfill ran; every listing now has an
       // owner, so the clause matched nothing and has been removed.
+
+      // Interest in a property: who looked, who saved, who enquired.
+      //
+      // One document per person, named by their own uid, so somebody can only
+      // ever record themselves. That is what makes these numbers worth showing:
+      // a counter field would have to be writable by every viewer, and a number
+      // anyone can set is a number nobody should believe.
+      //
+      // The owner reads them because they are the point. The person themselves
+      // may read their own row, which costs nothing and keeps the rule honest
+      // about who the document belongs to.
+      function ownsListing() {
+        return request.auth.uid ==
+          get(/databases/$(database)/documents/listings/$(listingId)).data.ownerId;
+      }
+
+      match /views/{viewerId} {
+        allow read: if request.auth != null
+                    && (request.auth.uid == viewerId || ownsListing());
+        allow create, update: if request.auth != null && request.auth.uid == viewerId;
+        // Nobody edits away the record that they looked.
+        allow delete: if false;
+      }
+
+      match /savedBy/{viewerId} {
+        allow read: if request.auth != null
+                    && (request.auth.uid == viewerId || ownsListing());
+        // Delete is allowed here, and only here: unsaving is a real action and
+        // the row exists to mirror it.
+        allow create, update, delete: if request.auth != null
+                                      && request.auth.uid == viewerId;
+      }
+
+      match /enquiries/{viewerId} {
+        allow read: if request.auth != null
+                    && (request.auth.uid == viewerId || ownsListing());
+        allow create, update: if request.auth != null && request.auth.uid == viewerId;
+        allow delete: if false;
+      }
+    }
+
+    // Money. Read-only to the two people it concerns, and writable by nobody.
+    //
+    // Every field here is decided server-side: the amount is recomputed from
+    // the listing by a Cloud Function, and the status only ever becomes 'paid'
+    // when Paystack's signed webhook says so. Functions use the Admin SDK,
+    // which bypasses these rules entirely, so denying all client writes costs
+    // nothing and closes the obvious attack — a tenant marking their own rent
+    // paid.
+    //
+    // The tenant reads their own receipts; the owner reads payments against
+    // their property, because being told you have been paid is the point.
+    match /payments/{paymentId} {
+      allow read: if request.auth != null
+                  && (resource.data.tenantId == request.auth.uid
+                      || resource.data.ownerId == request.auth.uid);
+
+      allow create, update, delete: if false;
     }
 
     match /users/{userId} {

@@ -35,7 +35,12 @@ import {
   IconShare,
 } from '../components/icons/Icon';
 import { usePreventScreenCapture } from 'expo-screen-capture';
-import { deleteListing } from '../services/landlord';
+import { deleteListing, setListingRented } from '../services/landlord';
+import {
+  fetchListingStats,
+  recordListingView,
+  type ListingStats,
+} from '../services/analytics';
 import { ensureConversation } from '../services/messages';
 import { shareListing } from '../lib/shareListing';
 import type { Listing } from '../types';
@@ -74,6 +79,8 @@ export default function ListingDetailScreen({ route }: Props) {
    */
   const canReachWizard = route.name === 'LandlordListingDetail';
   const [deleting, setDeleting] = useState(false);
+  const [changingAvailability, setChangingAvailability] = useState(false);
+  const [stats, setStats] = useState<ListingStats | null>(null);
   const { profile } = useAuth();
   const navigation = useNavigation<any>();
   const [listing, setListing] = useState<Listing | null>(null);
@@ -109,6 +116,23 @@ export default function ListingDetailScreen({ route }: Props) {
             if (active) setApplied(appliedState);
           } catch {
             // Enquiry state falls back to allowing another attempt.
+          }
+
+          const owner = result?.ownerId === profile.uid;
+
+          if (owner) {
+            // Only the owner is shown the figures, so only the owner pays for
+            // the three count queries.
+            fetchListingStats(listingId)
+              .then(next => {
+                if (active) setStats(next);
+              })
+              .catch(() => {});
+          } else {
+            // An owner opening their own advert is not interest, and counting
+            // it would make the number flattering and useless. Not awaited:
+            // nobody should wait on a statistic to read a listing.
+            recordListingView(listingId, profile.uid).catch(() => {});
           }
         }
 
@@ -178,6 +202,51 @@ export default function ListingDetailScreen({ route }: Props) {
       // know about. Cancelling is not a failure and does not reach here.
       Alert.alert('Could not open sharing', err?.message ?? 'Please try again.');
     }
+  }
+
+  /**
+   * Takes the property off the market, or puts it back.
+   *
+   * Confirmed on the way out but not on the way back in: hiding a live listing
+   * is the consequential direction, and relisting something you took down is
+   * plainly what you meant.
+   */
+  function handleToggleRented() {
+    if (!listing || changingAvailability) return;
+
+    const rented = listing.status?.listing === 'rented';
+
+    async function apply() {
+      if (!listing) return;
+      setChangingAvailability(true);
+      try {
+        await setListingRented(listing.id, !rented);
+        // Updated locally rather than refetched: one field changed and the
+        // screen already knows everything else about this property.
+        setListing({
+          ...listing,
+          status: { ...listing.status, listing: rented ? 'active' : 'rented' },
+        });
+      } catch (err: any) {
+        Alert.alert('Could not change this listing', err?.message ?? 'Please try again.');
+      } finally {
+        setChangingAvailability(false);
+      }
+    }
+
+    if (rented) {
+      apply();
+      return;
+    }
+
+    Alert.alert(
+      'Mark as rented?',
+      'Tenants will no longer find it in Browse. Nothing is deleted — your photographs, price and conversations stay, and you can put it back on the market at any time.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Mark as rented', onPress: apply },
+      ],
+    );
   }
 
   /**
@@ -300,9 +369,22 @@ export default function ListingDetailScreen({ route }: Props) {
    * the stack only decides whether the wizard is reachable from here.
    */
   const viewingAsOwner = !!listing.ownerId && listing.ownerId === profile?.uid;
+  const isRented = listing.status?.listing === 'rented';
 
   return (
     <ScrollView style={styles.wrapper} contentContainerStyle={styles.content}>
+      {/* Said at the top, where an owner looks first. A listing that has quietly
+          stopped appearing in Browse should never be a mystery to the person
+          who took it down. */}
+      {isRented && viewingAsOwner && (
+        <View style={styles.rentedBanner}>
+          <Text style={styles.rentedBannerText}>
+            Rented — hidden from Browse. Your photographs and conversations are
+            untouched.
+          </Text>
+        </View>
+      )}
+
       <Animated.View entering={FadeIn.duration(duration.quick)}>
         <PhotoGallery photos={photos} fallbackLabel={listing.location.area} />
       </Animated.View>
@@ -343,7 +425,43 @@ export default function ListingDetailScreen({ route }: Props) {
         )}
       </Animated.View>
 
-      <SavingsBreakdown annualRent={listing.pricing.annualRent} />
+      {/*
+        Shown to the owner in place of the savings breakdown, which is written
+        for somebody deciding whether to rent and tells an owner nothing they
+        do not know about their own price.
+
+        Three plain numbers and no chart. An owner wants to know whether anybody
+        is looking, and a graph of four data points would dress that up as more
+        than it is.
+      */}
+      {viewingAsOwner ? (
+        <View style={styles.stats}>
+          <Text style={styles.statsHeading}>Interest so far</Text>
+          {stats ? (
+            <>
+              <View style={styles.statsRow}>
+                <Stat value={stats.views} label={stats.views === 1 ? 'viewer' : 'viewers'} />
+                <Stat value={stats.saves} label={stats.saves === 1 ? 'save' : 'saves'} />
+                <Stat
+                  value={stats.enquiries}
+                  label={stats.enquiries === 1 ? 'enquiry' : 'enquiries'}
+                />
+              </View>
+              <Text style={styles.statsNote}>
+                {stats.views === 0
+                  ? 'Nobody has opened this listing yet. New properties take a few days to be found.'
+                  : stats.enquiries === 0
+                    ? 'People are looking but nobody has written yet. The photographs and the rent are what decide that.'
+                    : 'Counted per person, not per visit.'}
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.statsNote}>Counting…</Text>
+          )}
+        </View>
+      ) : (
+        <SavingsBreakdown annualRent={listing.pricing.annualRent} />
+      )}
 
       {/* Shown to the owner too once a tour exists — checking what was shot
           before a tenant sees it is the only review they get. Without one it
@@ -521,6 +639,23 @@ export default function ListingDetailScreen({ route }: Props) {
         )}
 
         {/*
+          Taking a property off the market sits above Delete, because it is what
+          an owner almost always actually wants. Deleting to express "this one
+          is let" throws away the photographs and the history with it.
+        */}
+        {viewingAsOwner && canReachWizard && (
+          <>
+            <View style={styles.actionSpacer} />
+            <Button
+              label={isRented ? 'Put back on the market' : 'Mark as rented'}
+              variant="secondary"
+              loading={changingAvailability}
+              onPress={handleToggleRented}
+            />
+          </>
+        )}
+
+        {/*
           Deleting is last, and separated, because it is the one action here
           that cannot be undone.
         */}
@@ -545,6 +680,16 @@ function Fact({ value, label }: { value: string; label: string }) {
     <View style={styles.fact}>
       <Text style={styles.factValue}>{value}</Text>
       <Text style={styles.factLabel}>{label}</Text>
+    </View>
+  );
+}
+
+/** One figure and its noun. Gold, because these are the numbers worth reading. */
+function Stat({ value, label }: { value: number; label: string }) {
+  return (
+    <View style={styles.stat}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
@@ -664,6 +809,53 @@ const styles = StyleSheet.create({
   },
   actions: { marginTop: spacing.lg },
   actionSpacer: { height: spacing.sm },
+  stats: {
+    backgroundColor: colors.backgroundPaper,
+    borderWidth: 1,
+    borderColor: colors.borderGold,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+  },
+  statsHeading: {
+    color: colors.accentGold,
+    fontFamily: typography.families.heading,
+    fontSize: typography.sizes.base,
+    marginBottom: spacing.md,
+  },
+  statsRow: { flexDirection: 'row' },
+  stat: { flex: 1 },
+  statValue: {
+    color: colors.textPrimary,
+    fontFamily: typography.families.display,
+    fontSize: typography.sizes.xl,
+  },
+  statLabel: {
+    color: colors.textSecondary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+  },
+  statsNote: {
+    color: colors.textMuted,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.xs,
+    lineHeight: 18,
+    marginTop: spacing.md,
+  },
+  rentedBanner: {
+    backgroundColor: colors.backgroundPaper,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.accentGold,
+    borderRadius: radius.control,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  rentedBannerText: {
+    color: colors.textSecondary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    lineHeight: 21,
+  },
   ownerOnlyNote: {
     color: colors.textMuted,
     fontFamily: typography.families.body,
