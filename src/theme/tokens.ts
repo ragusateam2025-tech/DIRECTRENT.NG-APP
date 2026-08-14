@@ -42,6 +42,18 @@ export const colors = {
   border: 'rgba(255,255,255,0.1)',
   borderLight: 'rgba(255,255,255,0.2)',
   borderGold: '#D4A853',
+
+  /**
+   * A light surface, for the rare panel that inverts the app.
+   *
+   * The app is dark throughout; this exists so a deliberate exception — the
+   * home hero — can be written in tokens rather than a raw hex string. Text on
+   * it must be `primaryDark`, never gold: `accentGold` on white measures about
+   * 2.9:1, below the 3:1 floor for large text, so gold belongs in a fill here
+   * rather than in a letterform.
+   */
+  surfaceLight: '#FFFFFF',
+  surfaceLightMuted: '#F4EFEA',
 } as const;
 
 export const typography = {
@@ -52,9 +64,31 @@ export const typography = {
     bodyMedium: 'Inter_500Medium',
     bodySemiBold: 'Inter_600SemiBold',
   },
+  /**
+   * The scale, and the rule for choosing from it.
+   *
+   * **Anything written in sentences gets `sm` (14) or larger. `xs` (12) is for
+   * things that are glanced at, never read** — badges, counts, timestamps, the
+   * small gold label above a group of chips.
+   *
+   * This is worth stating because the natural way to make a note look secondary
+   * is to shrink it, and doing that repeatedly ends with a screen whose
+   * explanatory copy — exactly the copy a first-time user depends on — is set
+   * below the size at which reading is comfortable. Android treats 12sp as
+   * caption size for that reason.
+   *
+   * **Carry hierarchy with colour and weight instead.** `textSecondary` and
+   * `textMuted` against `textPrimary` separate a note from the thing it
+   * explains perfectly well, and cost nothing in legibility. A muted 14 reads
+   * as secondary; a 12 reads as secondary and also as unreadable on a phone
+   * held at arm's length on a bus, which is where this app gets used.
+   */
   sizes: {
+    /** Labels, badges, counts, timestamps. Not sentences. */
     xs: 12,
+    /** The floor for prose: notes, list content, supporting copy. */
     sm: 14,
+    /** Body copy someone sits and reads — descriptions, message bubbles. */
     base: 16,
     lg: 18,
     xl: 20,

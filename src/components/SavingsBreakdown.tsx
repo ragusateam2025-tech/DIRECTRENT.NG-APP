@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   footnote: {
     color: colors.textMuted,
     fontFamily: typography.families.body,
-    fontSize: typography.sizes.xs,
+    fontSize: typography.sizes.sm,
     lineHeight: 18,
     marginTop: spacing.md,
   },

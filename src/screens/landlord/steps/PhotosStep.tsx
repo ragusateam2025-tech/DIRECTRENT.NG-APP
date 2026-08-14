@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   note: {
     color: colors.textMuted,
     fontFamily: typography.families.body,
-    fontSize: typography.sizes.xs,
+    fontSize: typography.sizes.sm,
     lineHeight: 18,
     marginTop: spacing.sm,
   },
