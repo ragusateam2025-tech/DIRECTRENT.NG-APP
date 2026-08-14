@@ -303,7 +303,13 @@ export default function PhotosStep({
         the two halves of that comparison.
       */}
       <Pressable
-        onPress={() => setTourRequested(v => !v)}
+        onPress={() => {
+          setTourRequested(v => !v);
+          // Ticking the box lifts the photo minimum, so a "add at least five
+          // photos" error left on screen is now telling the owner off for
+          // something that is no longer required.
+          setError('');
+        }}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: tourRequested }}
         accessibilityLabel="Ask Directrent to shoot a 360 tour of this property"
