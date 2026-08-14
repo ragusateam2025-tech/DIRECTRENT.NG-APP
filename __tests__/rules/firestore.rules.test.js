@@ -295,6 +295,108 @@ describe('listings — staff attaching tours', () => {
     const db = testEnv.authenticatedContext(STRANGER).firestore();
     await assertFails(getDoc(doc(db, 'listings/l2')));
   });
+
+  it('lets staff approve and decline a request', async () => {
+    await seedStaffAndListing();
+
+    const db = testEnv.authenticatedContext(STAFF).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'listings/l1'), {
+        tourReview: { status: 'approved', by: STAFF, at: '2026-08-14T00:00:00.000Z' },
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(db, 'listings/l1'), {
+        tourReview: {
+          status: 'declined',
+          reason: 'We do not cover Ikorodu yet.',
+          by: STAFF,
+          at: '2026-08-14T00:00:00.000Z',
+        },
+      }),
+    );
+  });
+
+  it('lets staff attach a tour and its approval in one write', async () => {
+    await seedStaffAndListing();
+
+    const db = testEnv.authenticatedContext(STAFF).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'listings/l1'), {
+        tour: { provider: 'kuula', embedUrl: 'https://kuula.co/share/x' },
+        tourReview: { status: 'approved', by: STAFF, at: '2026-08-14T00:00:00.000Z' },
+      }),
+    );
+  });
+
+  /**
+   * The decision belongs to operations, not to the person being decided about.
+   *
+   * An owner who can write tourReview can approve their own shoot, or erase a
+   * decline and go on appearing to wait — which makes the whole step theatre.
+   * An owner who can write `tour` can point it at any address on the internet,
+   * and that URL is loaded in a WebView inside our app.
+   *
+   * These are the cases the owner-update rule got wrong until the carve-out: it
+   * allowed any field at all so long as ownerId did not change.
+   */
+  it('refuses an owner approving their own shoot', async () => {
+    await seedStaffAndListing();
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'listings/l1'), {
+        tourReview: { status: 'approved', by: OWNER, at: '2026-08-14T00:00:00.000Z' },
+      }),
+    );
+  });
+
+  it('refuses an owner erasing a decline', async () => {
+    await seedStaffAndListing();
+    await seed(db =>
+      updateDoc(doc(db, 'listings/l1'), {
+        tourReview: { status: 'declined', reason: 'Not yet', by: STAFF, at: '1' },
+      }),
+    );
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertFails(updateDoc(doc(db, 'listings/l1'), { tourReview: null }));
+  });
+
+  it('refuses an owner pointing the tour at their own address', async () => {
+    await seedStaffAndListing();
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'listings/l1'), {
+        tour: { provider: 'kuula', embedUrl: 'https://not-a-tour.example.com' },
+      }),
+    );
+  });
+
+  it('refuses an owner smuggling a decision alongside a real edit', async () => {
+    await seedStaffAndListing();
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'listings/l1'), {
+        'details.description': 'A genuinely updated description',
+        tourReview: { status: 'approved', by: OWNER, at: '2026-08-14T00:00:00.000Z' },
+      }),
+    );
+  });
+
+  it('still lets an owner make an ordinary edit', async () => {
+    // The carve-out must not cost an owner the edits they are entitled to.
+    await seedStaffAndListing();
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'listings/l1'), {
+        'details.description': 'A genuinely updated description',
+      }),
+    );
+  });
 });
 
 describe('users', () => {

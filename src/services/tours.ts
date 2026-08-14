@@ -1,20 +1,31 @@
 import { collection, doc, getDocs, query, updateDoc, where } from '@react-native-firebase/firestore';
 import { db, COLLECTIONS } from '../lib/firebase';
-import type { Listing, ListingTour, TourProvider } from '../types';
+import { partitionTourQueue, type TourQueue } from '../lib/tourQueue';
+import type {
+  Listing,
+  ListingTour,
+  TourDecision,
+  TourProvider,
+  TourReview,
+} from '../types';
+
+export type { TourQueue } from '../lib/tourQueue';
 
 /**
- * Properties waiting for a 360 shoot.
+ * Every property that has ever asked for a shoot, sorted into what to do next.
  *
- * The queue is derived, not stored. A job exists because an owner ticked the
- * box and no tour has been attached yet — there is no separate jobs collection
- * to keep in step with the listings, and nothing to go stale if a listing is
- * deleted or a tour is attached from somewhere else.
+ * One query, sorted on the device. The queue is derived rather than stored: a
+ * job exists because an owner ticked the box, and which pile it belongs in
+ * follows from two fields on the listing itself. There is no jobs collection to
+ * keep in step, and nothing to go stale if a listing is deleted or a tour is
+ * attached from somewhere else.
  *
- * Firestore cannot express "field is absent" in a query, so the tour check
- * happens here. The `tourRequested` filter has already cut the set to the
- * handful of properties that asked, so this reads almost nothing.
+ * Firestore cannot express "field is absent" in a query, which is why the
+ * sorting cannot be pushed into it. The `tourRequested` filter has already cut
+ * the set to the handful of properties that asked, so this reads almost
+ * nothing.
  */
-export async function fetchTourQueue(): Promise<Listing[]> {
+export async function fetchTourQueue(): Promise<TourQueue> {
   const q = query(
     collection(db, COLLECTIONS.listings),
     where('tourRequested', '==', true),
@@ -22,31 +33,65 @@ export async function fetchTourQueue(): Promise<Listing[]> {
 
   const snapshot = await getDocs(q);
 
-  return snapshot.docs
-    .map(d => ({ id: d.id, ...d.data() }) as Listing)
-    .filter(listing => !listing.tour?.embedUrl);
-}
-
-/**
- * Every property that already has a tour, for checking and re-shooting.
- *
- * Kept alongside the queue because "what have we shot" is the other half of
- * the operator's job — without it a mistake can only be found by a tenant.
- */
-export async function fetchCapturedTours(): Promise<Listing[]> {
-  const q = query(
-    collection(db, COLLECTIONS.listings),
-    where('tourRequested', '==', true),
+  return partitionTourQueue(
+    snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as Listing),
   );
-
-  const snapshot = await getDocs(q);
-
-  return snapshot.docs
-    .map(d => ({ id: d.id, ...d.data() }) as Listing)
-    .filter(listing => !!listing.tour?.embedUrl);
 }
 
 export class InvalidTourUrl extends Error {}
+
+export class MissingDeclineReason extends Error {}
+
+/**
+ * Approves or declines a shoot request.
+ *
+ * A decline without a reason is refused here rather than left to the screen to
+ * remember. "Declined" on its own tells an owner nothing they can act on, and
+ * the real reasons — we do not cover your area yet, the photographs suggest the
+ * property is not ready — are ones they can either fix or stop waiting on. An
+ * unexplained no is how somebody decides the platform is not serious.
+ *
+ * An approval takes no reason. Being told yes needs no justification, and a
+ * mandatory note on the happy path is a note that gets filled with "ok".
+ */
+export async function decideTourRequest(
+  listingId: string,
+  status: TourDecision,
+  staffUid: string,
+  reason?: string,
+): Promise<TourReview> {
+  const trimmed = reason?.trim();
+
+  if (status === 'declined' && !trimmed) {
+    throw new MissingDeclineReason(
+      'Say why, in a sentence. The owner sees this, and a decline with no reason reads as no answer at all.',
+    );
+  }
+
+  const review: TourReview = {
+    status,
+    by: staffUid,
+    at: new Date().toISOString(),
+    // Only on a decline. Carrying an approval's stray note onto the listing
+    // would show the owner a comment nobody wrote for them.
+    ...(status === 'declined' && trimmed ? { reason: trimmed } : {}),
+  };
+
+  await updateDoc(doc(db, COLLECTIONS.listings, listingId), { tourReview: review });
+
+  return review;
+}
+
+/**
+ * Puts a decided request back into the queue as new.
+ *
+ * Explicit null rather than a field delete, for the same reason `detachTour`
+ * uses one: null is a value every reader already treats as undecided, and a
+ * deleted field and an absent one should not have to be told apart.
+ */
+export async function reopenTourRequest(listingId: string): Promise<void> {
+  await updateDoc(doc(db, COLLECTIONS.listings, listingId), { tourReview: null });
+}
 
 /**
  * Checks a pasted link before it reaches a listing.
@@ -87,9 +132,9 @@ export function normaliseTourUrl(raw: string): string {
 /**
  * Attaches a captured tour to a listing.
  *
- * Writes only the tour. `tourRequested` deliberately stays true — it is the
- * record that this property was asked for and visited, and clearing it would
- * make the request vanish the moment it was fulfilled.
+ * Writes the tour and marks the request approved. `tourRequested` deliberately
+ * stays true — it is the record that this property was asked for and visited,
+ * and clearing it would make the request vanish the moment it was fulfilled.
  */
 export async function attachTour(
   listingId: string,
@@ -104,7 +149,16 @@ export async function attachTour(
     attachedBy: staffUid,
   };
 
-  await updateDoc(doc(db, COLLECTIONS.listings, listingId), { tour });
+  // Attaching implies approval. An operator who has driven out and shot the
+  // place has plainly said yes, and leaving the request sitting as undecided
+  // would show the owner "waiting for a decision" under a finished tour.
+  const review: TourReview = {
+    status: 'approved',
+    by: staffUid,
+    at: tour.capturedAt ?? new Date().toISOString(),
+  };
+
+  await updateDoc(doc(db, COLLECTIONS.listings, listingId), { tour, tourReview: review });
 
   return tour;
 }

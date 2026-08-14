@@ -474,7 +474,12 @@ export default function ListingDetailScreen({ route }: Props) {
       {/* Shown to the owner too once a tour exists — checking what was shot
           before a tenant sees it is the only review they get. Without one it
           stays a tenant-facing promise, which an owner does not need. */}
-      {(listing.ownerId !== profile?.uid || !!listing.tour) && (
+      {/* A declined request shows a tenant nothing. The banner without a tour
+          is a promise that one is coming, and on a property we have turned
+          down that promise is simply false — the owner is told why below, and
+          the tenant is told nothing rather than something untrue. */}
+      {(listing.ownerId !== profile?.uid || !!listing.tour) &&
+        !(listing.tourReview?.status === 'declined' && !listing.tour) && (
         <TourBanner
           tour={listing.tour}
           onOpen={
@@ -487,6 +492,53 @@ export default function ListingDetailScreen({ route }: Props) {
               : undefined
           }
         />
+      )}
+
+      {/*
+        The answer to the owner's request, on the owner's own listing.
+
+        An owner who ticked the box and heard nothing assumes they were ignored.
+        Every state gets a sentence, including the boring one — "nobody has
+        looked yet" is information, and silence is not.
+
+        Only the owner sees this. A tenant has no interest in our operational
+        backlog, and "declined" on a public listing reads as something wrong
+        with the property.
+      */}
+      {viewingAsOwner && !!listing.tourRequested && (
+        <View style={styles.tourStatus}>
+          <Text style={styles.tourStatusHeading}>Your 360 tour request</Text>
+          {listing.tour ? (
+            <Text style={styles.tourStatusBody}>
+              Shot and live. Tenants can open it from this listing.
+            </Text>
+          ) : listing.tourReview?.status === 'declined' ? (
+            <>
+              <Text style={styles.tourStatusBody}>
+                We are not able to shoot this one.
+              </Text>
+              {!!listing.tourReview.reason && (
+                <Text style={styles.tourStatusReason}>
+                  “{listing.tourReview.reason}”
+                </Text>
+              )}
+              <Text style={styles.tourStatusBody}>
+                Your listing is unaffected — it stays live with your own
+                photographs.
+              </Text>
+            </>
+          ) : listing.tourReview?.status === 'approved' ? (
+            <Text style={styles.tourStatusBody}>
+              Approved. We will be in touch to arrange a visit — have the
+              property clean and tidy before we arrive.
+            </Text>
+          ) : (
+            <Text style={styles.tourStatusBody}>
+              Received. Nobody has looked at it yet — we will tell you either
+              way.
+            </Text>
+          )}
+        </View>
       )}
 
       <Text style={styles.sectionHeading}>About this property</Text>
@@ -869,6 +921,35 @@ const styles = StyleSheet.create({
   },
   actions: { marginTop: spacing.lg },
   actionSpacer: { height: spacing.sm },
+  tourStatus: {
+    backgroundColor: colors.backgroundPaper,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+  },
+  tourStatusHeading: {
+    color: colors.accentGold,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.xs,
+    letterSpacing: 0.6,
+    marginBottom: spacing.xs,
+  },
+  tourStatusBody: {
+    color: colors.textSecondary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    lineHeight: 20,
+  },
+  /** The operator's own words, set apart so it reads as quoted, not as ours. */
+  tourStatusReason: {
+    color: colors.textPrimary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    lineHeight: 20,
+    marginVertical: spacing.xs,
+  },
   rules: { marginTop: spacing.lg },
   rulesHeading: {
     color: colors.accentGold,

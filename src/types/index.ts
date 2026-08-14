@@ -266,6 +266,34 @@ export type LandlordListing = Partial<Omit<Listing, 'id' | 'ownerId' | 'status'>
  */
 export type TourProvider = 'kuula' | 'directrent';
 
+/**
+ * What operations decided about a shoot request.
+ *
+ * Absent means nobody has looked yet, which is the state the queue works
+ * through. It is a separate field from `tourRequested` because the two answer
+ * different questions — did the owner ask, and what did we say — and collapsing
+ * them into one value would lose the request the moment it was answered.
+ */
+export type TourDecision = 'approved' | 'declined';
+
+export interface TourReview {
+  status: TourDecision;
+  /**
+   * Why, in the operator's own words, shown to the owner.
+   *
+   * Required on a decline and refused without one. "Declined" on its own tells
+   * an owner nothing they can act on, and the honest reasons — we do not cover
+   * your area yet, the property is not ready to shoot — are ones they can
+   * either fix or stop waiting on. An unexplained no is how somebody decides
+   * the platform is not serious.
+   */
+  reason?: string;
+  /** uid of the staff member who decided, so a decision has an author. */
+  by: string;
+  /** ISO timestamp of the decision. */
+  at: string;
+}
+
 export interface ListingTour {
   provider: TourProvider;
   /**
@@ -334,6 +362,16 @@ export interface Listing {
    * as history rather than vanishing the moment the tour lands.
    */
   tourRequested?: boolean;
+  /**
+   * Operations' answer to that request.
+   *
+   * Absent means undecided — the request is new and sits at the top of the
+   * queue. Null means the same and exists because a decision can be undone: a
+   * declined request that turns out to be a mistake goes back to new rather
+   * than being deleted, so the owner sees it waiting again rather than seeing
+   * nothing at all.
+   */
+  tourReview?: TourReview | null;
   /**
    * House rules. Absent on listings written before the wizard asked.
    *

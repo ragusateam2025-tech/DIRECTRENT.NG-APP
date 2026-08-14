@@ -60,9 +60,21 @@ service cloud.firestore {
 
       // Only the owner may change a listing, and ownership itself is immutable
       // — a listing cannot be reassigned to another account.
+      //
+      // The two tour fields are carved out and belong to staff alone. An owner
+      // who could write `tourReview` could approve their own shoot or erase a
+      // decline and appear to still be waiting, which makes the whole decision
+      // theatre. An owner who could write `tour` could point it at any address
+      // on the internet, and that URL is loaded in a WebView inside our app.
+      //
+      // hasAny, not hasOnly: this refuses a write that touches either field
+      // whatever else it carries, so the fields cannot be smuggled in alongside
+      // a legitimate description change.
       allow update: if request.auth != null
                     && resource.data.ownerId == request.auth.uid
-                    && request.resource.data.ownerId == resource.data.ownerId;
+                    && request.resource.data.ownerId == resource.data.ownerId
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['tour', 'tourReview']);
 
       // Delete is separate, and has to be.
       //
@@ -83,11 +95,20 @@ service cloud.firestore {
       //
       // Narrow on both sides. The writer must carry staff: true on their own
       // user document — a flag no screen can set, so it cannot be granted to
-      // oneself — and the write may touch nothing but `tour`. A staff account
-      // therefore cannot change a rent, a description or an owner, which keeps
-      // an operator's phone from being a master key to the catalogue.
+      // oneself — and the write may touch nothing but the two tour fields. A
+      // staff account therefore cannot change a rent, a description or an
+      // owner, which keeps an operator's phone from being a master key to the
+      // catalogue.
+      //
+      // `tourReview` is the approve/decline decision. It is writable only here
+      // and never by the owner: an owner who could edit it would be able to
+      // approve their own shoot, or erase a decline and appear to be waiting.
+      // The owner clause above cannot reach it either, because that one refuses
+      // any write where the owner is not the author — which is every write to
+      // this field.
       allow update: if isStaff()
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tour']);
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['tour', 'tourReview']);
 
       // A temporary clause allowing updates to listings with no ownerId lived
       // here until 10 August 2026, so the seeded documents could be given their

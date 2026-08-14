@@ -5,6 +5,7 @@ import {
   FlatList,
   Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -20,45 +21,95 @@ import EmptyState from '../../components/EmptyState';
 import { primaryImageSource } from '../../lib/listingImage';
 import {
   attachTour,
+  decideTourRequest,
   detachTour,
-  fetchCapturedTours,
   fetchTourQueue,
   InvalidTourUrl,
+  MissingDeclineReason,
+  reopenTourRequest,
+  type TourQueue,
 } from '../../services/tours';
 import { useAuth } from '../../context/AuthContext';
 import type { Listing } from '../../types';
 
-type Tab = 'waiting' | 'done';
+type Tab = 'new' | 'shoot' | 'done' | 'declined';
+
+const EMPTY: TourQueue = { pending: [], approved: [], done: [], declined: [] };
+
+/**
+ * How each pile is labelled and what an empty one should say.
+ *
+ * Kept together because the four tabs differ only in these three strings and
+ * which array they read — writing them as four blocks of JSX would be four
+ * places to forget to change something.
+ */
+const TABS: {
+  id: Tab;
+  label: string;
+  bucket: keyof TourQueue;
+  emptyTitle: string;
+  emptyBody: string;
+}[] = [
+  {
+    id: 'new',
+    label: 'New',
+    bucket: 'pending',
+    emptyTitle: 'Nothing to decide',
+    emptyBody:
+      'When a property owner asks for a 360 tour while listing, it appears here for a yes or a no.',
+  },
+  {
+    id: 'shoot',
+    label: 'To shoot',
+    bucket: 'approved',
+    emptyTitle: 'Nothing to shoot',
+    emptyBody: 'Requests you approve appear here until a tour is attached.',
+  },
+  {
+    id: 'done',
+    label: 'Done',
+    bucket: 'done',
+    emptyTitle: 'No tours yet',
+    emptyBody: 'Tours you attach appear here, so you can check them before a tenant does.',
+  },
+  {
+    id: 'declined',
+    label: 'Declined',
+    bucket: 'declined',
+    emptyTitle: 'Nothing declined',
+    emptyBody: 'Requests you turn down stay here, so a wrong call can be put back.',
+  },
+];
 
 /**
  * The operator's whole job, on one screen.
  *
  * Written for someone whose computer skills stop at a browser, so the only
- * thing it ever asks for is a pasted link. There are no document IDs anywhere:
- * properties are identified by their photograph and their address, which is
- * what the operator was standing in front of an hour earlier.
+ * things it ever asks for are a yes, a no with a sentence, and a pasted link.
+ * There are no document IDs anywhere: properties are identified by their
+ * photograph and their address, which is what the operator was standing in
+ * front of an hour earlier.
  *
- * The queue is the job list. A property appears because an owner asked for a
- * shoot, and leaves when a tour is attached — so "what is left to do" is not
- * something anyone has to maintain, it is just what this screen shows.
+ * The queue is the job list. A property appears because an owner asked, moves
+ * as it is decided and shot, and every pile is derived from the listing itself
+ * — so "what is left to do" is not something anyone has to maintain, it is just
+ * what this screen shows.
  */
 export default function TourQueueScreen() {
   const { profile } = useAuth();
-  const [tab, setTab] = useState<Tab>('waiting');
-  const [waiting, setWaiting] = useState<Listing[]>([]);
-  const [done, setDone] = useState<Listing[]>([]);
+  const [tab, setTab] = useState<Tab>('new');
+  const [queue, setQueue] = useState<TourQueue>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
   const [link, setLink] = useState('');
+  const [reason, setReason] = useState('');
   const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [queue, captured] = await Promise.all([fetchTourQueue(), fetchCapturedTours()]);
-      setWaiting(queue);
-      setDone(captured);
+      setQueue(await fetchTourQueue());
     } catch (e: any) {
       // Named plainly. A permission error here means the staff flag is missing,
       // which is a fixable thing someone should be told rather than a spinner
@@ -78,19 +129,53 @@ export default function TourQueueScreen() {
   function openFor(listing: Listing) {
     setOpenId(current => (current === listing.id ? null : listing.id));
     setLink(listing.tour?.embedUrl ?? '');
+    setReason('');
     setError('');
   }
 
-  async function save(listing: Listing) {
-    if (saving || !profile) return;
+  /** Closes the card, clears the form and reloads every pile. */
+  async function done() {
+    setOpenId(null);
+    setLink('');
+    setReason('');
+    await load();
+  }
 
-    setSaving(true);
+  async function decide(listing: Listing, status: 'approved' | 'declined') {
+    if (busy || !profile) return;
+
+    setBusy(true);
+    setError('');
+    try {
+      await decideTourRequest(listing.id, status, profile.uid, reason);
+      await done();
+      Alert.alert(
+        status === 'approved' ? 'Approved' : 'Declined',
+        status === 'approved'
+          ? `${listing.location.address} is on the list to shoot.`
+          : `${listing.location.address} was turned down, and the owner sees your reason.`,
+      );
+    } catch (e: any) {
+      // The missing reason is a form error, not a failure — it belongs under
+      // the field the operator has to fill in, not in a dialog they dismiss.
+      setError(
+        e instanceof MissingDeclineReason
+          ? e.message
+          : (e?.message ?? 'Could not save that. Try again.'),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function save(listing: Listing) {
+    if (busy || !profile) return;
+
+    setBusy(true);
     setError('');
     try {
       await attachTour(listing.id, link, profile.uid);
-      setOpenId(null);
-      setLink('');
-      await load();
+      await done();
       Alert.alert('Tour attached', `${listing.location.address} now has a 360 tour.`);
     } catch (e: any) {
       if (e instanceof InvalidTourUrl) {
@@ -99,14 +184,14 @@ export default function TourQueueScreen() {
         setError(e?.message ?? 'Could not save the link. Try again.');
       }
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   }
 
   function confirmRemove(listing: Listing) {
     Alert.alert(
       'Remove this tour?',
-      'The property goes back into the waiting list. The panoramas themselves are not deleted.',
+      'The property goes back onto the list to shoot. The panoramas themselves are not deleted.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -115,7 +200,7 @@ export default function TourQueueScreen() {
           onPress: async () => {
             try {
               await detachTour(listing.id);
-              await load();
+              await done();
             } catch (e: any) {
               Alert.alert('Could not remove it', e?.message ?? String(e));
             }
@@ -125,7 +210,14 @@ export default function TourQueueScreen() {
     );
   }
 
-  const data = tab === 'waiting' ? waiting : done;
+  async function reopen(listing: Listing) {
+    try {
+      await reopenTourRequest(listing.id);
+      await done();
+    } catch (e: any) {
+      Alert.alert('Could not reopen it', e?.message ?? String(e));
+    }
+  }
 
   function renderItem({ item, index }: { item: Listing; index: number }) {
     const image = primaryImageSource(item);
@@ -153,32 +245,76 @@ export default function TourQueueScreen() {
               {item.location.area} · {item.basicInfo.bedrooms} bed
             </Text>
             {!!item.ownerName && <Text style={styles.owner}>{item.ownerName}</Text>}
+            {/* The reason is on the row rather than hidden behind a tap. The
+                declined pile is read to remember why, and making somebody open
+                each card to find out defeats the point of keeping them. */}
+            {tab === 'declined' && !!item.tourReview?.reason && (
+              <Text style={styles.reason}>“{item.tourReview.reason}”</Text>
+            )}
           </View>
         </Pressable>
 
         {open && (
           <View style={styles.editor}>
-            <TextField
-              label="Tour link"
-              value={link}
-              onChangeText={setLink}
-              placeholder="https://…"
-              autoCapitalize="none"
-              error={error}
-            />
-            <Text style={styles.help}>
-              Open the tour in Kuula, press Share, copy the link and paste it
-              here. Paste the whole thing, including https.
-            </Text>
-            <Button label="Save tour" onPress={() => save(item)} loading={saving} />
-            {!!item.tour && (
+            {tab === 'new' ? (
               <>
+                <Text style={styles.help}>
+                  Approve if we cover this area and the property looks ready to
+                  shoot. If not, say why — the owner reads it.
+                </Text>
+                <TextField
+                  label="Reason (only needed to decline)"
+                  value={reason}
+                  onChangeText={setReason}
+                  placeholder="We do not cover Ikorodu yet."
+                  autoCapitalize="sentences"
+                  error={error}
+                />
+                <Button
+                  label="Approve"
+                  onPress={() => decide(item, 'approved')}
+                  loading={busy}
+                />
                 <View style={styles.spacer} />
                 <Button
-                  label="Remove tour"
+                  label="Decline"
                   variant="secondary"
-                  onPress={() => confirmRemove(item)}
+                  onPress={() => decide(item, 'declined')}
                 />
+              </>
+            ) : tab === 'declined' ? (
+              <>
+                <Text style={styles.help}>
+                  Putting this back makes it a new request again, and the owner
+                  stops seeing the decline.
+                </Text>
+                <Button label="Put back in the queue" onPress={() => reopen(item)} />
+              </>
+            ) : (
+              <>
+                <TextField
+                  label="Tour link"
+                  value={link}
+                  onChangeText={setLink}
+                  placeholder="https://…"
+                  autoCapitalize="none"
+                  error={error}
+                />
+                <Text style={styles.help}>
+                  Open the tour in Kuula, press Share, copy the link and paste it
+                  here. Paste the whole thing, including https.
+                </Text>
+                <Button label="Save tour" onPress={() => save(item)} loading={busy} />
+                {!!item.tour && (
+                  <>
+                    <View style={styles.spacer} />
+                    <Button
+                      label="Remove tour"
+                      variant="secondary"
+                      onPress={() => confirmRemove(item)}
+                    />
+                  </>
+                )}
               </>
             )}
           </View>
@@ -187,30 +323,37 @@ export default function TourQueueScreen() {
     );
   }
 
+  const active = TABS.find(t => t.id === tab) ?? TABS[0];
+
   return (
     <SafeAreaView style={styles.screen} edges={['bottom']}>
-      <View style={styles.tabs}>
-        <Pressable
-          onPress={() => setTab('waiting')}
-          style={[styles.tab, tab === 'waiting' && styles.tabOn]}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: tab === 'waiting' }}
-        >
-          <Text style={[styles.tabText, tab === 'waiting' && styles.tabTextOn]}>
-            To shoot ({waiting.length})
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setTab('done')}
-          style={[styles.tab, tab === 'done' && styles.tabOn]}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: tab === 'done' }}
-        >
-          <Text style={[styles.tabText, tab === 'done' && styles.tabTextOn]}>
-            Done ({done.length})
-          </Text>
-        </Pressable>
-      </View>
+      {/* Scrolls sideways because four labels with counts do not fit across a
+          720px phone, and truncating "Declined" to "Decli…" would be worse than
+          asking for a swipe. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabsRow}
+        contentContainerStyle={styles.tabs}
+      >
+        {TABS.map(t => (
+          <Pressable
+            key={t.id}
+            onPress={() => {
+              setTab(t.id);
+              setOpenId(null);
+              setError('');
+            }}
+            style={[styles.tab, tab === t.id && styles.tabOn]}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === t.id }}
+          >
+            <Text style={[styles.tabText, tab === t.id && styles.tabTextOn]}>
+              {t.label} ({queue[t.bucket].length})
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
 
       {loading ? (
         <View style={styles.loading}>
@@ -218,19 +361,12 @@ export default function TourQueueScreen() {
         </View>
       ) : (
         <FlatList
-          data={data}
+          data={queue[active.bucket]}
           keyExtractor={item => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <EmptyState
-              title={tab === 'waiting' ? 'Nothing waiting' : 'No tours yet'}
-              body={
-                tab === 'waiting'
-                  ? 'When a property owner asks for a 360 tour while listing, it appears here.'
-                  : 'Tours you attach appear here, so you can check them before a tenant does.'
-              }
-            />
+            <EmptyState title={active.emptyTitle} body={active.emptyBody} />
           }
         />
       )}
@@ -240,10 +376,16 @@ export default function TourQueueScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  tabs: { flexDirection: 'row', padding: spacing.md, paddingBottom: 0 },
+  /**
+   * A horizontal ScrollView fills the height it is given unless told not to,
+   * which stretched this one down the screen and left the active tab's
+   * underline floating halfway to the list.
+   */
+  tabsRow: { flexGrow: 0, flexShrink: 0 },
+  tabs: { paddingHorizontal: spacing.md, paddingTop: spacing.md },
   tab: {
-    flex: 1,
     paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
@@ -286,6 +428,12 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.xs,
     marginTop: 2,
   },
+  reason: {
+    color: colors.accentGold,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    marginTop: spacing.xs,
+  },
   editor: {
     padding: spacing.md,
     paddingTop: 0,
@@ -295,8 +443,8 @@ const styles = StyleSheet.create({
   help: {
     color: colors.textMuted,
     fontFamily: typography.families.body,
-    fontSize: typography.sizes.xs,
-    lineHeight: 18,
+    fontSize: typography.sizes.sm,
+    lineHeight: 20,
     marginBottom: spacing.md,
   },
   spacer: { height: spacing.sm },
