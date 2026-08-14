@@ -123,10 +123,18 @@ export default function BrowseScreen({ navigation }: Props) {
               <HomeHero />
             )}
 
+            {/*
+              "listed by their owners" rather than "no agent fees".
+
+              It says the same thing without naming anybody to be against, and
+              it is the more useful half of the claim: who wrote the listing is
+              why the fee is what it is, and it is also what tells a renter the
+              person replying will be the one holding the keys.
+            */}
             <Text style={styles.sub}>
               {filtering
                 ? `${visible.length} of ${listings.length} ${listings.length === 1 ? 'property' : 'properties'}`
-                : `${listings.length} verified ${listings.length === 1 ? 'property' : 'properties'} · no agent fees`}
+                : `${listings.length} verified ${listings.length === 1 ? 'property' : 'properties'} · listed by their owners`}
             </Text>
             {!!error && <Text style={styles.error}>{error}</Text>}
 

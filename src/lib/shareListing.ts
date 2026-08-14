@@ -35,7 +35,12 @@ export function buildShareMessage(listing: Listing): string {
     // Directrent is, so the message has to say why it is not just another
     // listing -- and "from" because 32% is the researched floor, not the
     // ceiling.
-    `Direct from the property owner on Directrent, with no agent fees. Save from ${formatNaira(savings)} against the usual charges.`,
+    //
+    // Says what the listing is rather than what it is not. This gets forwarded
+    // to people we have never met, sometimes by the very agents we would rather
+    // work with, and a message that opens by naming an enemy travels worse than
+    // one that opens with the offer.
+    `Direct from the property owner on Directrent. Save from ${formatNaira(savings)} against the usual charges.`,
   ];
 
   // Owner-occupancy is a first-order question here and costs one line. Someone
