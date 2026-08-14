@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import Animated, { FadeIn } from 'react-native-reanimated';
 import { colors, typography, spacing, radius } from '../../../theme/tokens';
-import { duration } from '../../../theme/motion';
 import Button from '../../../components/Button';
 import { uploadPhoto, deletePhoto, MIN_PHOTOS } from '../../../services/landlord';
-import { IconPlus } from '../../../components/icons/Icon';
+import PhotoGrid from '../../../components/PhotoGrid';
 import type { DraftListing } from '../AddPropertyScreen';
 
 interface PhotosStepProps {
@@ -120,55 +118,20 @@ export default function PhotosStep({
   }
 
   /**
-   * Moves a photo, and saves the new order straight away.
+   * Records the order a drag produced.
    *
-   * Order is the whole point of this: the first photo is the cover, and the
-   * cover is most of what decides whether anybody opens the listing at all.
-   * Until now it was whichever picture happened to upload first.
-   *
-   * Chosen from a menu rather than by dragging. Dragging a grid on a phone is
-   * fiddly to do and easy to do by accident, and this has to work for somebody
-   * standing in a flat holding the phone in one hand.
+   * The first photo is the cover, and the cover is most of what decides whether
+   * anybody opens the listing at all. Until recently it was whichever picture
+   * happened to upload first.
    */
-  async function movePhoto(from: number, to: number) {
-    if (to < 0 || to >= photos.length || from === to) return;
-
-    const next = [...photos];
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
+  async function reorderPhotos(next: string[]) {
+    // The drag has already decided the order; this only records it. Compared
+    // before writing because a drag that ends where it started is common and
+    // should not cost a round trip.
+    if (next.length === photos.length && next.every((uri, i) => uri === photos[i])) return;
 
     setPhotos(next);
     await onChange({ media: { ...draft.media, photos: next } });
-  }
-
-  /**
-   * The menu behind a tap on a photo.
-   *
-   * "Make cover" is listed first and separately from moving, even though it is
-   * a move to position one, because it is the thing owners actually want and
-   * nobody thinks of it as reordering.
-   */
-  function photoActions(index: number) {
-    const options: { text: string; onPress?: () => void; style?: 'destructive' | 'cancel' }[] = [];
-
-    if (index > 0) {
-      options.push({ text: 'Make cover photo', onPress: () => movePhoto(index, 0) });
-      options.push({ text: 'Move earlier', onPress: () => movePhoto(index, index - 1) });
-    }
-    if (index < photos.length - 1) {
-      options.push({ text: 'Move later', onPress: () => movePhoto(index, index + 1) });
-    }
-
-    options.push({ text: 'Remove', style: 'destructive', onPress: () => confirmRemove(index) });
-    options.push({ text: 'Cancel', style: 'cancel' });
-
-    Alert.alert(
-      index === 0 ? 'Cover photo' : `Photo ${index + 1}`,
-      index === 0
-        ? 'This is the first photo tenants see.'
-        : undefined,
-      options,
-    );
   }
 
   function confirmRemove(index: number) {
@@ -239,41 +202,13 @@ export default function PhotosStep({
         </Text>
       </View>
 
-      <View style={styles.grid}>
-        {photos.map((uri, index) => (
-          <Animated.View key={uri} entering={FadeIn.duration(duration.quick)}>
-            <Pressable
-              onPress={() => photoActions(index)}
-              onLongPress={() => confirmRemove(index)}
-              accessibilityRole="button"
-              accessibilityLabel={`Photo ${index + 1} of ${photos.length}${
-                index === 0 ? ', cover photo' : ''
-              }. Tap to reorder or remove.`}
-              style={styles.tile}
-            >
-              <Image source={{ uri }} style={styles.tileImage} resizeMode="cover" />
-              {index === 0 && (
-                <View style={styles.coverBadge}>
-                  <Text style={styles.coverBadgeText}>Cover</Text>
-                </View>
-              )}
-            </Pressable>
-          </Animated.View>
-        ))}
-
-        {photos.length < 10 && (
-          <Pressable
-            onPress={addPhotos}
-            disabled={uploading}
-            accessibilityRole="button"
-            accessibilityLabel="Add photos"
-            style={[styles.tile, styles.addTile]}
-          >
-            <IconPlus size={22} color={colors.accentGold} />
-            <Text style={styles.addTileText}>Add</Text>
-          </Pressable>
-        )}
-      </View>
+      <PhotoGrid
+        photos={photos}
+        onReorder={reorderPhotos}
+        onRemove={confirmRemove}
+        onAdd={addPhotos}
+        addDisabled={uploading}
+      />
 
       {uploading && (
         <View style={styles.progressWrap}>
@@ -287,9 +222,10 @@ export default function PhotosStep({
       )}
 
       <Text style={styles.note}>
-        Tap a photo to move it or make it the cover. The first photo is what
-        tenants see in Browse, so lead with the best room. Photos are resized
-        before upload to keep them quick to send and quick to load.
+        Hold a photo and drag it to change the order. The first one is the
+        cover — it is what tenants see in Browse, so lead with the best room.
+        Photos are resized before upload to keep them quick to send and quick
+        to load.
       </Text>
 
       {/*
@@ -435,43 +371,6 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     lineHeight: 21,
     marginTop: spacing.sm,
-  },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  tile: {
-    width: TILE,
-    height: TILE,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-    marginRight: spacing.sm,
-    marginBottom: spacing.sm,
-    backgroundColor: colors.backgroundElevated,
-  },
-  tileImage: { width: '100%', height: '100%' },
-  coverBadge: {
-    position: 'absolute',
-    left: spacing.xs,
-    bottom: spacing.xs,
-    backgroundColor: 'rgba(26,10,10,0.75)',
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-  },
-  coverBadgeText: {
-    color: colors.accentGold,
-    fontFamily: typography.families.bodySemiBold,
-    fontSize: typography.sizes.xs,
-  },
-  addTile: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderGold,
-    borderStyle: 'dashed',
-  },
-  addTileText: {
-    color: colors.accentGold,
-    fontFamily: typography.families.body,
-    fontSize: typography.sizes.xs,
   },
   progressWrap: { marginTop: spacing.sm, marginBottom: spacing.md },
   progressTrack: {
