@@ -8,6 +8,11 @@ admin.initializeApp();
 // nothing with messaging beyond the admin app.
 exports.enhanceListingPhoto = require('./enhancePhoto').enhanceListingPhoto;
 
+// Paystack. The secret key lives in Firebase secrets, never in this repository
+// or the app bundle.
+exports.initialisePayment = require('./payments').initialisePayment;
+exports.paystackWebhook = require('./payments').paystackWebhook;
+
 /**
  * Server-side work for Directrent.
  *
