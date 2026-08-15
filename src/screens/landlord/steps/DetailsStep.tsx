@@ -15,6 +15,7 @@ import {
   POWER_BAND_OPTIONS,
 } from '../../../data/power';
 import { toSentenceCase } from '../../../lib/text';
+import { refineText } from '../../../services/refine';
 import {
   ALTERATION_LABELS,
   ALTERATION_NOTE,
@@ -72,6 +73,7 @@ export default function DetailsStep({
     String(draft.details?.maxOccupants ?? 3),
   );
   const [error, setError] = useState('');
+  const [refining, setRefining] = useState(false);
   // Defaults to off. Sharing a personal number should be a deliberate yes,
   // never something an owner discovers they agreed to by not noticing.
   const [callable, setCallable] = useState(!!draft.ownerPhone);
@@ -140,6 +142,27 @@ export default function DetailsStep({
     minimumLease,
     onChange,
   ]);
+
+  /**
+   * Rewrites the description in place.
+   *
+   * Replaced outright rather than suggested, unlike the tenant's message. This
+   * is advertising copy about a building — there is no voice to preserve and
+   * nothing anybody will be held to at a viewing. The owner can still edit it
+   * afterwards, and their original is one undo away in their own head.
+   */
+  async function handleRefine() {
+    if (refining) return;
+    setRefining(true);
+    setError('');
+    try {
+      setDescription(await refineText(description, 'owner'));
+    } catch (e: any) {
+      setError(e?.message ?? 'Could not refine that. Try again.');
+    } finally {
+      setRefining(false);
+    }
+  }
 
   function toggleAmenity(a: string) {
     setAmenities(prev => (prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]));
@@ -214,6 +237,20 @@ export default function DetailsStep({
         placeholder="Two bedroom flat with both rooms en-suite, on a quiet residential street…"
         autoCapitalize="sentences"
       />
+
+      {/* Text label, no icon and no emoji — the app has neither anywhere else,
+          and a button that announces itself as clever is a button people
+          distrust with their own words. */}
+      <Button
+        label={refining ? 'Refining…' : 'Refine listing'}
+        variant="secondary"
+        onPress={handleRefine}
+        loading={refining}
+      />
+      <Text style={styles.consentNote}>
+        Rewrites your notes into a listing description. Read it before you
+        continue — it is a suggestion, not a fact-check.
+      </Text>
 
       <Text style={styles.label}>Amenities</Text>
       {/* Grouped so an owner scans one category at a time instead of reading

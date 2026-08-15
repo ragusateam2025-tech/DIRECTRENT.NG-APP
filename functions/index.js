@@ -12,6 +12,7 @@ exports.enhanceListingPhoto = require('./enhancePhoto').enhanceListingPhoto;
 // or the app bundle.
 exports.initialisePayment = require('./payments').initialisePayment;
 exports.paystackWebhook = require('./payments').paystackWebhook;
+exports.refineText = require('./refineText').refineText;
 
 /**
  * Server-side work for Directrent.

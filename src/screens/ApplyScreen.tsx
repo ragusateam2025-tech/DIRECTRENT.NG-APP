@@ -9,6 +9,7 @@ import Button from '../components/Button';
 import TextField from '../components/TextField';
 import { formatNaira } from '../lib/format';
 import { tidyMessage } from '../lib/text';
+import { refineText } from '../services/refine';
 import { calculateSavings } from '../lib/savings';
 import {
   submitApplication,
@@ -33,6 +34,17 @@ export default function ApplyScreen() {
   const [leaseMonths, setLeaseMonths] = useState<LeaseDuration>(12);
   const [occupants, setOccupants] = useState('2');
   const [message, setMessage] = useState('');
+  const [polishing, setPolishing] = useState(false);
+  /**
+   * The suggestion, held beside what the tenant wrote rather than over it.
+   *
+   * Never applied automatically. An owner choosing between applicants is partly
+   * reading how somebody writes, and silently replacing that would hand every
+   * tenant the same voice — and leave them to meet a landlord expecting the
+   * person in the message. So it is shown, and they choose.
+   */
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [polishError, setPolishError] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -48,6 +60,19 @@ export default function ApplyScreen() {
 
   // The opening message lives in submitApplication, next to the enquiry it is
   // written from, so one place decides what an owner reads.
+  async function handlePolish() {
+    if (polishing) return;
+    setPolishing(true);
+    setPolishError('');
+    try {
+      setSuggestion(await refineText(message, 'tenant'));
+    } catch (e: any) {
+      setPolishError(e?.message ?? 'Could not polish that. Try again.');
+    } finally {
+      setPolishing(false);
+    }
+  }
+
   async function handleSubmit() {
     if (!listing || !profile) return;
 
@@ -213,6 +238,42 @@ export default function ApplyScreen() {
           error={error}
         />
 
+        {/* Text label, no icon and no emoji, matching the rest of the app. */}
+        <Button
+          label={polishing ? 'Polishing…' : 'Polish message'}
+          variant="secondary"
+          onPress={handlePolish}
+          loading={polishing}
+        />
+        {!!polishError && <Text style={styles.polishError}>{polishError}</Text>}
+
+        {!!suggestion && (
+          <View style={styles.suggestion}>
+            <Text style={styles.suggestionHeading}>A suggested rewrite</Text>
+            <Text style={styles.suggestionBody}>{suggestion}</Text>
+            <Text style={styles.privacy}>
+              Yours is still in the box above. Use this only if it still sounds
+              like you — the owner is going to meet you.
+            </Text>
+            <View style={styles.suggestionActions}>
+              <Button
+                label="Use this"
+                variant="secondary"
+                onPress={() => {
+                  setMessage(suggestion);
+                  setSuggestion(null);
+                }}
+              />
+              <View style={styles.suggestionSpacer} />
+              <Button
+                label="Keep mine"
+                variant="secondary"
+                onPress={() => setSuggestion(null)}
+              />
+            </View>
+          </View>
+        )}
+
         <Text style={styles.privacy}>
           The property owner will see your name and email so they can reply. Nobody else
           can see this enquiry.
@@ -310,6 +371,35 @@ const styles = StyleSheet.create({
     borderColor: colors.accentGold,
     backgroundColor: colors.backgroundElevated,
     color: colors.accentGold,
+  },
+  suggestion: {
+    backgroundColor: colors.backgroundPaper,
+    borderWidth: 1,
+    borderColor: colors.borderGold,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  suggestionHeading: {
+    color: colors.accentGold,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.xs,
+    letterSpacing: 0.6,
+    marginBottom: spacing.xs,
+  },
+  suggestionBody: {
+    color: colors.textPrimary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    lineHeight: 21,
+  },
+  suggestionActions: { flexDirection: 'row', marginTop: spacing.sm },
+  suggestionSpacer: { width: spacing.sm },
+  polishError: {
+    color: colors.errorLight,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    marginTop: spacing.xs,
   },
   privacy: {
     color: colors.textMuted,
