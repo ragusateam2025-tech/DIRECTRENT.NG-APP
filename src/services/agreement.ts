@@ -22,10 +22,16 @@ export class AgreementError extends Error {}
 /**
  * Renders the agreement and returns the file's location.
  *
- * expo-print writes to a cache directory with a generated name, so the file is
- * immediately renamed to something a person can recognise in a downloads list
- * three weeks later. `Tenancy-Yaba-Chidi-Okafor.pdf` is findable;
- * `2f8c1e...pdf` is not.
+ * **The file keeps expo-print's generated name**, which is a UUID. Confirmed on
+ * a device: the share sheet shows `6a715793-...pdf`, not the readable name
+ * `agreementFilename` builds. Renaming needs expo-file-system, which is not
+ * installed and would mean another native module and another rebuild for a
+ * cosmetic gain — deliberately deferred.
+ *
+ * `dialogTitle` below still carries the readable name, and some Android share
+ * targets use it; this one did not. Worth fixing after the investor meeting,
+ * because a tenancy agreement somebody has to find again in three weeks should
+ * not be named after a UUID.
  */
 export async function renderAgreementPdf(input: AgreementInput): Promise<string> {
   const html = tenancyAgreementHtml(input);
