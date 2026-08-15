@@ -94,16 +94,29 @@ export async function reopenTourRequest(listingId: string): Promise<void> {
 }
 
 /**
+ * Hosts we serve 360 tours from.
+ *
+ * An allowlist rather than a hardcoded host, because the provider is still
+ * meant to be replaceable — moving to our own hosting adds an entry here and an
+ * alternative to the pattern in firestore.rules, and changes nothing else.
+ */
+export const TOUR_HOSTS = ['kuula.co', 'www.kuula.co'];
+
+/**
  * Checks a pasted link before it reaches a listing.
  *
  * The failure this prevents is silent: a wrong or truncated link saves without
  * complaint and produces a tour that only fails when a tenant taps it, by which
  * time the operator has moved on and nobody knows which property is broken.
  *
- * Deliberately does not check that the link is a Kuula one. The provider is
- * meant to be replaceable, and a validator that only accepts today's host would
- * have to be edited to accept tomorrow's.
+ * The host must be one we serve tours from. This URL is loaded in a WebView
+ * inside the app, under our branding and behind our screenshot blocking, so an
+ * arbitrary address here puts an arbitrary website in front of a tenant who
+ * believes they are looking at a property. The same check is enforced in
+ * firestore.rules, which is the boundary; this one exists so an operator gets a
+ * sentence rather than a permission error.
  */
+
 export function normaliseTourUrl(raw: string): string {
   const trimmed = raw.trim();
 
@@ -124,6 +137,15 @@ export function normaliseTourUrl(raw: string): string {
     // An http tour is blocked by Android's network policy anyway, so it would
     // fail as a blank screen rather than as an error anyone could act on.
     throw new InvalidTourUrl('The link must start with https://');
+  }
+
+  // Compared against the parsed host, never against the whole string. A prefix
+  // check on the raw text would accept https://kuula.co.example.com/, which is
+  // somebody else's domain entirely.
+  if (!TOUR_HOSTS.includes(parsed.host)) {
+    throw new InvalidTourUrl(
+      `Tours must be hosted on ${TOUR_HOSTS[0]}. That link points at ${parsed.host}.`,
+    );
   }
 
   return parsed.toString();

@@ -52,9 +52,18 @@ service firebase.storage {
     match /avatars/{userId} {
       allow read: if request.auth != null;
 
+      // `create, update` and never `write`, for the same reason as the listing
+      // path above: `write` covers delete too, and the size check below reads
+      // request.resource, which is null on a delete.
+      //
+      // This one did work — but only because the `allow delete` beneath it
+      // granted what this clause was erroring on, rules being OR'd together.
+      // That is luck holding it up rather than design, and removing the second
+      // clause proved it: deletion fails outright. Both halves are now tested.
+      //
       // Tighter than the listing ceiling: an avatar displays at 96px, so
       // anything approaching a megabyte means compression was skipped.
-      allow write: if request.auth != null
+      allow create, update: if request.auth != null
                    && request.auth.uid + '.jpg' == userId
                    && request.resource.size < 1024 * 1024
                    && request.resource.contentType.matches('image/.*');

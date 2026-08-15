@@ -87,6 +87,17 @@ beforeEach(async () => {
   await testEnv.clearFirestore();
 });
 
+/**
+ * A signed-in context whose address is confirmed.
+ *
+ * Creating a listing now requires `email_verified` on the token, so a plain
+ * authenticatedContext is no longer enough for the create path — and a test
+ * that used one would fail for a reason unrelated to what it is checking.
+ */
+function verified(uid) {
+  return testEnv.authenticatedContext(uid, { email_verified: true }).firestore();
+}
+
 /** Seeds documents with the rules switched off, so setup cannot be blocked by them. */
 async function seed(writer) {
   await testEnv.withSecurityRulesDisabled(async context => {
@@ -120,14 +131,38 @@ describe('listings', () => {
   });
 
   it('lets an owner create a listing in their own name', async () => {
-    const db = testEnv.authenticatedContext(OWNER).firestore();
+    const db = verified(OWNER);
     await assertSucceeds(setDoc(doc(db, 'listings/new'), listing()));
+  });
+
+  /**
+   * The address has to be confirmed, and confirmed on the server.
+   *
+   * The app has always asked, but only the app — a direct SDK call skipped the
+   * screen and the disposable-domain list with it, so the whole defence against
+   * a throwaway account listing property was a button somebody could decline to
+   * press.
+   */
+  it('refuses a new listing from an unconfirmed address', async () => {
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertFails(setDoc(doc(db, 'listings/new'), listing()));
+  });
+
+  it('still lets an unconfirmed owner edit a listing they already have', async () => {
+    // On create alone, deliberately. Nothing already published breaks, whatever
+    // the state of its owner's address.
+    await seed(db => setDoc(doc(db, 'listings/l1'), listing()));
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'listings/l1'), { 'details.description': 'Updated' }),
+    );
   });
 
   it('refuses a listing attributed to someone else', async () => {
     // Without this check anyone could publish a property in another person's
     // name, and the owner would never know it existed.
-    const db = testEnv.authenticatedContext(STRANGER).firestore();
+    const db = verified(STRANGER);
     await assertFails(setDoc(doc(db, 'listings/new'), listing({ ownerId: OWNER })));
   });
 
@@ -315,6 +350,44 @@ describe('listings — staff attaching tours', () => {
         },
       }),
     );
+  });
+
+  /**
+   * The tour URL is loaded in a WebView inside our app, under our branding and
+   * behind our screenshot blocking. Any https address used to be acceptable,
+   * which made a staff account — or a stolen one — able to put an arbitrary
+   * website in front of a tenant who believes they are looking at a property.
+   */
+  it('refuses a tour hosted anywhere but an allowed host', async () => {
+    await seedStaffAndListing();
+
+    const db = testEnv.authenticatedContext(STAFF).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'listings/l1'), {
+        tour: { provider: 'kuula', embedUrl: 'https://not-a-tour.example.com/x' },
+      }),
+    );
+  });
+
+  it('refuses a lookalike domain that merely starts the same way', async () => {
+    // The reason the pattern requires a slash after the host. A prefix check
+    // would wave this through, and it is somebody else's domain entirely.
+    await seedStaffAndListing();
+
+    const db = testEnv.authenticatedContext(STAFF).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'listings/l1'), {
+        tour: { provider: 'kuula', embedUrl: 'https://kuula.co.example.com/share/x' },
+      }),
+    );
+  });
+
+  it('still allows detaching a tour, which writes null', async () => {
+    // The host check must not catch the one write that carries no host.
+    await seedStaffAndListing();
+
+    const db = testEnv.authenticatedContext(STAFF).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'listings/l1'), { tour: null }));
   });
 
   it('lets staff attach a tour and its approval in one write', async () => {

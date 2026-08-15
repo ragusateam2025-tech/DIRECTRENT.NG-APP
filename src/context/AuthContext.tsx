@@ -10,6 +10,7 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
   reload,
+  getIdToken,
   EmailAuthProvider,
 } from '@react-native-firebase/auth';
 import { doc, getDoc, getDocFromServer, setDoc } from '@react-native-firebase/firestore';
@@ -149,6 +150,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // on every call. The whole file already uses the modular functions.
     await reload(user);
     const verified = auth.currentUser?.emailVerified ?? false;
+
+    // Force a new ID token once the address is confirmed.
+    //
+    // firestore.rules reads `request.auth.token.email_verified`, and that is a
+    // claim baked into the token at the moment it was minted — not a live
+    // lookup. A token issued before the user clicked the link keeps saying
+    // false for up to an hour, so without this an owner who has just verified
+    // is refused when they publish, with nothing on screen to explain why.
+    //
+    // Only on the way to verified, and best-effort: this is a refresh, and a
+    // failed refresh must not make the app claim the address is unconfirmed
+    // when it plainly is.
+    if (verified) {
+      try {
+        await getIdToken(auth.currentUser!, true);
+      } catch {
+        // The next token refresh picks it up; the app stays usable meanwhile.
+      }
+    }
+
     setEmailVerified(verified);
     return verified;
   }

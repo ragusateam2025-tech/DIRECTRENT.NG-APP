@@ -24,6 +24,28 @@ service cloud.firestore {
     // return false, and a rule that errors is a rule nobody can reason about —
     // it would also fail this way for an auth account whose profile document
     // has not been written yet.
+    /**
+     * Hosts a 360 tour may be served from.
+     *
+     * The tour URL is loaded in a WebView inside our app, under our branding
+     * and with our screenshot blocking on it. Any https address used to be
+     * acceptable, which made a staff account — or a stolen one — able to put an
+     * arbitrary website in front of a tenant who believes they are looking at a
+     * property.
+     *
+     * Anchored on both sides, and the trailing slash matters: without it
+     * `https://kuula.co.example.com/` would match the prefix and pass.
+     *
+     * Kuula is a test, not a decision. When tours move to our own hosting this
+     * pattern gains an alternative rather than being replaced — the same
+     * migration the rest of the tour model was built for.
+     */
+    function tourHostAllowed() {
+      return request.resource.data.get('tour', null) == null
+             || request.resource.data.tour.get('embedUrl', '')
+                  .matches('^https://(www[.])?kuula[.]co/.*');
+    }
+
     function isStaff() {
       return request.auth != null
              && get(/databases/$(database)/documents/users/$(request.auth.uid))
@@ -55,8 +77,25 @@ service cloud.firestore {
 
       // A landlord may only create a listing owned by themselves. Without
       // this, anyone could create a listing attributed to someone else.
+      //
+      // And the address must be confirmed. The app has always asked for this,
+      // but only the app — which is not the same thing as requiring it. A
+      // direct SDK call skipped the screen, and with it the disposable-domain
+      // list, so the whole defence against a throwaway account listing property
+      // was a button somebody could decline to press.
+      //
+      // Deliberately on create alone. Every listing already published stays
+      // editable by its owner whatever the state of their address, so nothing
+      // live breaks; only new property has to clear the bar.
+      //
+      // `email_verified` is a claim on the ID token, not a live lookup, so a
+      // token minted before the address was confirmed still says false for up
+      // to an hour. AuthContext forces a token refresh when it observes the
+      // change — without that, an owner who has just verified would be refused
+      // here and have no idea why.
       allow create: if request.auth != null
-                    && request.resource.data.ownerId == request.auth.uid;
+                    && request.resource.data.ownerId == request.auth.uid
+                    && request.auth.token.email_verified == true;
 
       // Only the owner may change a listing, and ownership itself is immutable
       // — a listing cannot be reassigned to another account.
@@ -108,7 +147,8 @@ service cloud.firestore {
       // this field.
       allow update: if isStaff()
                     && request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['tour', 'tourReview']);
+                         .hasOnly(['tour', 'tourReview'])
+                    && tourHostAllowed();
 
       // A temporary clause allowing updates to listings with no ownerId lived
       // here until 10 August 2026, so the seeded documents could be given their

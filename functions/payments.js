@@ -171,7 +171,16 @@ exports.paystackWebhook = onRequest(
       .update(req.rawBody)
       .digest('hex');
 
-    if (signature !== expected) {
+    // Compared in constant time. `!==` returns as soon as two bytes differ, so
+    // how long it takes leaks how much of a guess was correct — and this is the
+    // one comparison in the app that stands directly between a stranger and a
+    // tenancy marked paid. Length is checked first because timingSafeEqual
+    // throws on a mismatch, and the buffers are built from the same encoding so
+    // a short or absent header cannot reach it.
+    const given = Buffer.from(String(signature ?? ''), 'utf8');
+    const want = Buffer.from(expected, 'utf8');
+
+    if (given.length !== want.length || !crypto.timingSafeEqual(given, want)) {
       logger.warn('Rejected a webhook with a bad signature');
       res.status(401).send('Invalid signature');
       return;
