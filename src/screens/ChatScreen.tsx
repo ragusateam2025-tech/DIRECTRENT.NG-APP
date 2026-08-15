@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -42,6 +43,9 @@ interface Props {
 export default function ChatScreen({ route }: Props) {
   const { conversationId } = route.params;
   const { profile } = useAuth();
+  // Typed loosely because this screen is registered in three stacks and only
+  // needs one route from each of them.
+  const navigation = useNavigation<any>();
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
@@ -201,7 +205,22 @@ export default function ChatScreen({ route }: Props) {
         {/* Both parties see the outcome. A tenant whose enquiry was declined
             should not have to infer it from silence. */}
         {conversation.applicationStatus === 'accepted' && (
-          <Text style={[styles.outcome, styles.outcomeGood]}>Enquiry accepted</Text>
+          <>
+            <Text style={[styles.outcome, styles.outcomeGood]}>Enquiry accepted</Text>
+            {/* Offered only once both sides have agreed. Before that there is
+                nothing to write an agreement about, and putting the button
+                there earlier would invite somebody to send a tenancy to a
+                stranger who has not said yes. */}
+            <View style={styles.agreement}>
+              <Button
+                label="Prepare tenancy agreement"
+                variant="secondary"
+                onPress={() =>
+                  navigation.navigate('Agreement', { conversationId: conversation.id })
+                }
+              />
+            </View>
+          </>
         )}
         {conversation.applicationStatus === 'declined' && (
           <Text style={styles.outcome}>Enquiry declined</Text>
@@ -304,6 +323,7 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     marginBottom: spacing.sm,
   },
+  agreement: { marginTop: spacing.sm },
   decisionButtons: { flexDirection: 'row' },
   decisionButton: { flex: 1, marginRight: spacing.sm },
   outcome: {

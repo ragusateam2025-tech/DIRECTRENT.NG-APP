@@ -13,6 +13,7 @@ import AddPropertyScreen from '../screens/landlord/AddPropertyScreen';
 import MessagesScreen from '../screens/MessagesScreen';
 import TourScreen from '../screens/TourScreen';
 import TourQueueScreen from '../screens/staff/TourQueueScreen';
+import AgreementScreen from '../screens/AgreementScreen';
 import ChatScreen from '../screens/ChatScreen';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -28,6 +29,7 @@ export type BrowseStackParams = {
   ListingDetail: { listingId: string };
   Apply: { listingId: string };
   Chat: { conversationId: string };
+  Agreement: { conversationId: string };
   Tour: { embedUrl: string; title: string };
 };
 
@@ -37,6 +39,7 @@ export type LandlordStackParams = {
   LandlordListingDetail: { listingId: string };
   Apply: { listingId: string };
   Chat: { conversationId: string };
+  Agreement: { conversationId: string };
   // An owner should be able to see the tour of their own property — it is the
   // only way they can check what was shot before a tenant does.
   Tour: { embedUrl: string; title: string };
@@ -45,6 +48,7 @@ export type LandlordStackParams = {
 export type MessagesStackParams = {
   MessagesList: undefined;
   Chat: { conversationId: string };
+  Agreement: { conversationId: string };
 };
 
 export type ProfileStackParams = {
@@ -93,6 +97,11 @@ function BrowseStack() {
           would lose their place in the listing. */}
       <Stack.Screen name="Chat" component={ChatScreen} options={{ title: 'Conversation' }} />
       <Stack.Screen
+        name="Agreement"
+        component={AgreementScreen}
+        options={{ title: 'Tenancy agreement' }}
+      />
+      <Stack.Screen
         name="Tour"
         component={TourScreen}
         options={({ route }) => ({ title: route.params.title })}
@@ -113,6 +122,11 @@ function MessagesFlow() {
         name="Chat"
         component={ChatScreen}
         options={{ title: 'Conversation' }}
+      />
+      <MessagesStack.Screen
+        name="Agreement"
+        component={AgreementScreen}
+        options={{ title: 'Tenancy agreement' }}
       />
     </MessagesStack.Navigator>
   );
@@ -171,6 +185,11 @@ function LandlordFlow() {
         name="Chat"
         component={ChatScreen}
         options={{ title: 'Conversation' }}
+      />
+      <LandlordStack.Screen
+        name="Agreement"
+        component={AgreementScreen}
+        options={{ title: 'Tenancy agreement' }}
       />
       <LandlordStack.Screen
         name="Tour"

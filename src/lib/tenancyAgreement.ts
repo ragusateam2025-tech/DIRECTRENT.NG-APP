@@ -25,7 +25,14 @@ import type { Listing } from '../types';
 
 export interface AgreementParty {
   name: string;
-  email: string;
+  /**
+   * Optional, because neither party can read the other's.
+   *
+   * The rules restrict /users/{uid} to that user alone, so whichever side
+   * generates the document knows their own address and not the other's. A ruled
+   * blank is the honest answer; guessing one onto a tenancy agreement is not.
+   */
+  email?: string | null;
   phone?: string | null;
 }
 
@@ -103,11 +110,13 @@ function ruleLines(listing: Listing): string[] {
 }
 
 function party(label: string, p: AgreementParty): string {
-  const phone = p.phone ? formatNigerianPhone(p.phone) : '__________________';
+  const blank = '__________________';
+  const phone = p.phone ? formatNigerianPhone(p.phone) : blank;
+  const email = p.email || blank;
   return `
     <p class="party"><strong>${escapeHtml(label)}</strong><br />
     ${escapeHtml(p.name)}<br />
-    ${escapeHtml(p.email)}<br />
+    ${escapeHtml(email)}<br />
     ${escapeHtml(phone)}<br />
     Address: <span class="blank"></span></p>`;
 }
