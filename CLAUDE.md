@@ -143,21 +143,65 @@ listings live in Firestore (not in code — `SEED_LISTINGS` is imported nowhere)
 - **Security-rules tests** — 29 cases against the Firestore emulator,
   `npm run test:rules`. See §9.17.
 
+### ✅ Built 14–15 August
+
+- **House rules & availability** — pets, smoking, alterations, free text, plus
+  availability and minimum lease reusing the tenant's own `MoveInTiming` /
+  `LeaseDuration` vocabulary. Alterations is its own field (AC pipes, solar,
+  tiles) and defaults to "ask first".
+- **NERC power band** A–E, optional, shown as "Band B / 16+ hrs a day".
+- **Major road & landmark** — optional, in the Location step.
+- **Text normalisation** (`src/lib/text.ts`) — case and spacing only, never
+  grammar. Applied at step boundaries, never as somebody types. Chat gets a
+  lighter touch: a short shout stays shouted.
+- **Spell-check underlines restored.** `TextField` hardcoded
+  `autoCorrect={false}`, which sets Android's no-suggestions flag — nothing in
+  this app had ever been spell-checked. On by default; off for email, phone,
+  tour link, passwords.
+- **Wizard remembers in-progress work** — steps report as you type, buffered in
+  a ref, debounced 2s, flushed on background. `wizardStep` is stored, not
+  inferred. Editing a published listing still does NOT autosave, deliberately.
+- **Photo reordering** — drag and drop (the user replaced an earlier menu).
+- **Tour approve / decline / reopen**, four-tab staff queue, decline requires a
+  reason, decline categorised as `fixable` or `area_not_covered`. Only fixable
+  ones can be resent by the owner.
+- **Tour escalation** — 3 working days (`src/lib/businessDays.ts`, Mon–Fri, no
+  public holidays modelled). The tours line is a company contact in
+  `src/data/support.ts` and appears only when overdue AND staff have not marked
+  contact. **`TOUR_SUPPORT.phone` is deliberately empty — fill it in.**
+- **Tenancy agreement** — `src/lib/tenancyAgreement.ts` (pure, 19 tests) plus
+  `src/services/agreement.ts` using expo-print. Reached from a conversation once
+  the enquiry is accepted. **The clauses are not lawyer-settled and the document
+  says so on its first page.**
+- **AI writing assistant** — `functions/refineText.js`, Google AI Studio free
+  tier, dual prompts on `role`. Owner copy is replaced; a tenant's message is
+  *suggested* with Use this / Keep mine, because an owner reads how somebody
+  writes and the tenant has to meet them.
+- **Security pass** — email verification now enforced in rules (on listing
+  *create* only), tour URLs restricted to an allowlist, storage rules tested for
+  the first time (17 tests), Paystack webhook signature compared in constant
+  time.
+
 ### ⏳ Known gaps — read before promising anything
 
-- **Editing a published listing is impossible.** Only drafts reopen in the
-  wizard. Routing published listings there is NOT a one-line fix: the wizard's
-  exit dialog calls `discardDraft`, which deletes the document and every photo.
-- **In-app voice is half-built.** Signalling is done; `react-native-webrtc`, a
-  call screen, a native rebuild and a TURN relay are not. Without TURN, a
-  large share of Nigerian mobile-to-mobile calls connect to silence.
-- **No 360 tour content.** The whole path is built; nothing has been shot.
-  Kuula free tier chosen for testing — its tour URLs are public, which no
-  client-side protection changes.
-- **No push notifications.** Messaging works but nobody is told a message arrived.
-- **No BVN/NIN verification, no Paystack.** Both need credentials.
-- **Listing review was removed.** Publishing goes straight to `active` because
-  the admin panel in MASTER_PRD does not exist. `pending` remains in the model.
+- **`refineText` is NOT deployed.** The `GOOGLE_AI_API_KEY` secret is set
+  (version 2) and the native rebuild is done, but
+  `npx firebase deploy --only functions:refineText` has never run. Neither AI
+  button has ever been exercised against the live API — model name, request
+  shape and both buttons are all unverified. `MODEL` is a one-line constant.
+- **`initialisePayment` and `paystackWebhook` are not deployed either**, and
+  there is no payment screen. `@react-native-firebase/functions@24.0.0` is now
+  installed, which is what a payment screen would need.
+- **The tenancy agreement screen has never run.** No accepted enquiry exists on
+  the test account, so the screen and the PDF are unverified on hardware.
+- **Tour contact / escalation UI has never rendered** for the same reason.
+- **No 360 tour content.** One placeholder `https://kuula.co` link is attached
+  to a test listing.
+- **In-app voice is half-built.** Signalling only; needs react-native-webrtc, a
+  call screen, a rebuild and a TURN relay. Do not start before the 29th.
+- **No BVN/NIN.** No ratings, no receipts, no escrow release, no lease revenue
+  flow beyond the document itself.
+- **Listing review was removed.** Publishing goes straight to `active`.
 
 ### ⏳ Future scope
 
@@ -186,10 +230,19 @@ scoped in the MASTER_PRD and FEATURE_SPEC documents.
   the source of truth. `firestore.rules` was last deployed 10 August. **Note
   `storage.rules` is still console-published by hand** — nothing deploys it.
 - **Git remote:** `https://github.com/ragusateam2025-tech/DIRECTRENT.NG-APP`
+- **Native modules added 15 August:** `expo-print`, `expo-sharing`,
+  `@react-native-firebase/functions@24.0.0` (pinned — every other Firebase
+  package peers on `app@24.0.0` exactly; `expo install` picks a version that
+  will not resolve).
+- **Secrets:** `GOOGLE_AI_API_KEY` set (v2). `PAYSTACK_SECRET_KEY` still unset.
+- **Rules deploy:** both sets go through the CLI now —
+  `npx firebase deploy --only firestore:rules,storage`. `firebase.json` already
+  had the storage entry; the old note saying nothing deployed it was wrong.
 - **Tests:**
   - `npm test` — Jest under jest-expo, in `__tests__/` at the repo root
-  - `npm run test:rules` — security rules against the Firestore emulator; starts
-    and stops the emulator itself, needs no account and no network
+  - `npm run test:rules` — Firestore **and Storage** rules against the
+    emulators; starts and stops them itself, needs no account and no network
+  - Current counts: **217 app tests, 93 rules tests**
 
 ---
 
@@ -249,6 +302,22 @@ Listed so we don't relearn the same lessons:
 18. **A sudden power cut corrupts caches, not just files** → on 3 August the laptop died mid-build and left two *build caches* zero-filled: Gradle's `android/app/.cxx/**/android_gradle_build.json` (4,361 bytes of nothing → `MalformedJsonException ... line 1 column 1`) and Metro's file map (`Unable to deserialize cloned data`, then `TypeError: dependencies is not iterable` at 99% of a bundle). Windows had recorded each file's new size before the data reached the disk. **Neither error names the cause.** Delete the cache and rebuild: `android/app/.cxx/Debug` for Gradle, and `expo start --clear` plus `%TEMP%\metro-cache` for Metro.
 19. **The ReadOnly-directory problem is not confined to `android/`** → on 10 August `npm install` failed with `EPERM: operation not permitted, rmdir` because **911 directories under `node_modules\@firebase` carried the ReadOnly attribute**. Same fix, wider net: `attrib -R "<dir>\*" /S /D`. Also stop Metro first — it holds handles in `node_modules` and each breaks the other.
 20. **Clearing ReadOnly *before* a Gradle build is not enough** → the flag reappears on directories Gradle creates *during* the build, so it can still fail partway through (`:app:generateDebugResValues`). Clear it again and re-run; the build resumes incrementally.
+22. **Trusting an exit code** → `npx expo run:android` returned **exit 0 while
+    building nothing**, because no device was connected. `npm run test:rules`
+    passing means nothing until you break the rule and watch the right test
+    fail — that is how the avatar delete bug and the missing staff read were
+    both confirmed real.
+23. **Enforcing a rule in two places** → the photo minimum lived in the photos
+    step *and* the publish gate. Lifting it for 360 requests changed only one,
+    so the wizard let an owner past step three and refused them on the last
+    screen. Rules that appear twice drift; `src/lib/publishChecks.ts` exists
+    because of it.
+24. **`--no-bundler` then wondering why the phone will not connect** → that flag
+    skips starting Metro. The app is not broken; nothing is serving it.
+25. **A client-side check is not a rule** → email verification, the disposable
+    domain list and the 3-day escalation threshold were all app-only. Two are
+    now in firestore.rules; the third is knowingly a product rule, not a
+    boundary. "No screen offers it" is not the same as "nobody can do it".
 21. **Trusting a deploy tool's "success"** → the Firebase MCP `firebase_deploy` returned `{"status":"success"}` while the live rules were unchanged. Only reading the rules back caught it. Verify the deployed state, not the report.
 
 ---
@@ -283,36 +352,46 @@ The collection holds 6 seeded listings (owner `demo`) and 2 created through the
 app by test accounts. **All accounts in `users` are test accounts** — there is
 no account for the founder's own email.
 
-### Verified on the device
-Browse, filters, listing detail with the photo gallery, saved properties, the
-icon set, profile editing, and profile picture upload — all **as of 31 July**.
+### Verified on the device (15 August)
+
+Browse and the new hero, the listing wizard end to end including publishing with
+zero photos when a 360 is requested, in-progress work surviving Back **and a
+hard kill**, resuming at the right step, the four-tab tour queue, approve,
+decline with a reason, the decline validation, the declined pile, attaching a
+tour, and the URL validator rejecting a link with no https.
 
 ### Built but NOT verified on a device
-Everything from 3–10 August: facilities and their icons, owner occupancy and
-its filter, the 360 tour screen and staff queue, the Enquiries/Messages merge,
-email checks and verification, auto-cycling photos. `tsc` is clean and 144
-tests pass, but **§9.15 still applies** — none of it has run on hardware.
 
-The dev client on the phone is current as of the 10 August build
-(`react-native-webview`, `expo-screen-capture`). Anything JS since then arrives
-over Metro; a new native module needs another rebuild.
+The tenancy agreement screen and PDF, the tour contact/escalation UI, the
+resend-a-decline button, both AI buttons, the power band and house rules on a
+published listing. §9.15 still applies.
 
-### To open the staff tour queue
-1. Sign up in the app with the account that will be staff
-2. Set `staff: true` on that `users/{uid}` document — **console or CLI only**,
-   the rules now forbid the app from setting it in either direction
-3. Force-stop and reopen; the button appears in Profile
+### Test data that must be cleaned before the 29th
+
+- A ₦9,000,000/year listing whose photos are selfies.
+- A draft titled "SPACIOUS TWO BEDROOM FLAT IN YABA" whose photos are
+  screenshots of PropertyGuru.
+- `users/demo` holds an old FCM token.
+- The Kuula link attached to 27 Herbert Macaulay Way is `https://kuula.co`, not
+  a tour.
 
 ### Recommended next work, in order
-1. **Verify the 3–10 August work on a device.** The largest risk before the
-   29th is the volume of unverified code, not missing features.
-2. **Editing a published listing** — see the warning in section 5. The obvious
-   investor question, and the honest answer today is "you can't".
-3. **One real 360 tour**, shot and attached, so the differentiator is live
+1. **Deploy `refineText`** and test both AI buttons. One command, currently the
+   only thing between a built feature and a working one.
+2. **Demo data.** Real photographs on the seeded listings and the junk deleted.
+   The biggest visible gap and it needs no engineering.
+3. **One real 360 tour**, shot and attached, so the differentiator is shown
    rather than described.
-4. **Push notifications** — messaging is weak without them.
-5. **WebRTC native layer** — last.
+4. **Verify on hardware** what is listed as unverified above.
+5. **Paystack** — set the secret, deploy the two functions, build the screen.
+6. **WebRTC** — not before the 29th.
 
 ---
 
-*Last updated: August 10, 2026 — facilities, owner occupancy, 360 tours, the Enquiries/Messages merge and email verification built; listings backfill complete; rules now deployed and tested by CLI; nothing since 31 July verified on a device; investor meeting 29 August*
+*Last updated: August 15, 2026 — house rules, availability, power bands, road
+and landmark, text normalisation, wizard persistence, photo reordering, tour
+approve/decline/escalate/resend, the tenancy agreement generator, and a
+dual-role AI writing assistant all built. A security pass moved email
+verification and tour host restriction into the rules and gave Storage its
+first tests. 217 app tests, 93 rules tests. `refineText` is built but NOT
+deployed; investor meeting 29 August, scope freeze 26 August.*
