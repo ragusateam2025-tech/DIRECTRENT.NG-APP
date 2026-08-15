@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { tidyMessage } from '../lib/text';
+import { refineText } from '../services/refine';
 import { colors, typography, spacing, radius } from '../theme/tokens';
 import { duration } from '../theme/motion';
 import { useAuth } from '../context/AuthContext';
@@ -46,6 +47,15 @@ export default function ChatScreen({ route }: Props) {
   // Typed loosely because this screen is registered in three stacks and only
   // needs one route from each of them.
   const navigation = useNavigation<any>();
+  const [polishing, setPolishing] = useState(false);
+  /**
+   * The suggestion, held above the composer rather than dropped into it.
+   *
+   * Same bargain as the enquiry form: an owner reads how somebody writes, and
+   * silently replacing that hands every tenant the same voice — then leaves
+   * them to meet a landlord expecting the person in the message.
+   */
+  const [suggestion, setSuggestion] = useState<string | null>(null);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
@@ -111,6 +121,18 @@ export default function ChatScreen({ route }: Props) {
     if (!profile) return;
     markConversationRead(conversationId, profile.uid).catch(() => {});
   }, [conversationId, profile, messages.length]);
+
+  async function handlePolish() {
+    if (polishing) return;
+    setPolishing(true);
+    try {
+      setSuggestion(await refineText(draft, 'tenant'));
+    } catch (e: any) {
+      Alert.alert('Could not polish that', e?.message ?? String(e));
+    } finally {
+      setPolishing(false);
+    }
+  }
 
   async function handleSend() {
     if (!profile || !conversation || sending) return;
@@ -260,6 +282,41 @@ export default function ChatScreen({ route }: Props) {
         />
 
         <View style={styles.composer}>
+          {/* Above the composer, and only for the tenant. The owner prompt is
+              written for listing copy and would be wrong here; the tenant one
+              is written for exactly this message. */}
+          {!isOwner && draft.trim().length >= 20 && !suggestion && (
+            <Button
+              label={polishing ? 'Polishing…' : 'Polish message'}
+              variant="secondary"
+              onPress={handlePolish}
+              loading={polishing}
+            />
+          )}
+
+          {!!suggestion && (
+            <View style={styles.suggestion}>
+              <Text style={styles.suggestionHeading}>A suggested rewrite</Text>
+              <Text style={styles.suggestionBody}>{suggestion}</Text>
+              <View style={styles.suggestionActions}>
+                <Button
+                  label="Use this"
+                  variant="secondary"
+                  onPress={() => {
+                    setDraft(suggestion);
+                    setSuggestion(null);
+                  }}
+                />
+                <View style={styles.suggestionSpacer} />
+                <Button
+                  label="Keep mine"
+                  variant="secondary"
+                  onPress={() => setSuggestion(null)}
+                />
+              </View>
+            </View>
+          )}
+
           <TextInput
             value={draft}
             onChangeText={setDraft}
@@ -324,6 +381,28 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   agreement: { marginTop: spacing.sm },
+  suggestion: {
+    backgroundColor: colors.backgroundPaper,
+    borderWidth: 1,
+    borderColor: colors.borderGold,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  suggestionHeading: {
+    color: colors.accentGold,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.xs,
+    marginBottom: spacing.xs,
+  },
+  suggestionBody: {
+    color: colors.textPrimary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    lineHeight: 21,
+  },
+  suggestionActions: { flexDirection: 'row', marginTop: spacing.sm },
+  suggestionSpacer: { width: spacing.sm },
   decisionButtons: { flexDirection: 'row' },
   decisionButton: { flex: 1, marginRight: spacing.sm },
   outcome: {

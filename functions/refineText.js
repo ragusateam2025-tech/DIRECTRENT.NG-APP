@@ -21,10 +21,14 @@ const GOOGLE_AI_API_KEY = defineSecret('GOOGLE_AI_API_KEY');
 
 /**
  * Free-tier model, and a constant because it is the thing most likely to need
- * changing. Google retires model ids on its own schedule; when this stops
- * resolving, the fix is one line here.
+ * changing. Google retires model ids on its own schedule and this has already
+ * happened once: gemini-2.0-flash returned a 404 saying it was no longer
+ * available, within days of being written.
+ *
+ * When that happens again the symptom is "The writing assistant is unavailable"
+ * on the phone and a 404 in the logs naming the dead id. The fix is this line.
  */
-const MODEL = 'gemini-2.0-flash';
+const MODEL = 'gemini-3.7-flash';
 
 /**
  * Caps, chosen to fail politely rather than expensively.
