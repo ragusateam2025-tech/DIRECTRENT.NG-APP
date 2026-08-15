@@ -177,6 +177,22 @@ listings live in Firestore (not in code — `SEED_LISTINGS` is imported nowhere)
   tier, dual prompts on `role`. Owner copy is replaced; a tenant's message is
   *suggested* with Use this / Keep mine, because an owner reads how somebody
   writes and the tenant has to meet them.
+- **Payments, end to end and verified against live Paystack test mode.**
+  `src/screens/PaymentScreen.tsx` and `src/services/payments.ts`, reached from
+  an accepted conversation, tenant side only. Three stages kept apart: review,
+  Paystack's checkout in a WebView pinned to paystack.com, then a wait.
+  **The app never decides a payment succeeded** — anybody can navigate to a
+  success URL, so it watches the payment document and waits for the webhook.
+  The listener attaches *before* the checkout opens, because the webhook can
+  arrive while the tenant is still on Paystack's page. Confirmed working on a
+  device on 15 August: `{"amount":3030000,"reference":"ih5a36z6KIqq1U0PySvJ",
+  "message":"Payment confirmed"}` — signature verified, amount matched.
+  While an enquiry is still pending the tenant sees the Pay button **disabled
+  with the reason**, because a missing control is indistinguishable from a
+  broken app. That was found by somebody trying to pay, not by a test.
+- **The enquiry no longer asks how long a tenant wants to rent for.** Housing in
+  Lagos is not taken on lightly and left. `leaseMonths` stays on the model at 12
+  because the agreement and the minimum-lease filter read it.
 - **Security pass** — email verification now enforced in rules (on listing
   *create* only), tour URLs restricted to an allowlist, storage rules tested for
   the first time (17 tests), Paystack webhook signature compared in constant
@@ -184,14 +200,28 @@ listings live in Firestore (not in code — `SEED_LISTINGS` is imported nowhere)
 
 ### ⏳ Known gaps — read before promising anything
 
-- **`refineText` is NOT deployed.** The `GOOGLE_AI_API_KEY` secret is set
-  (version 2) and the native rebuild is done, but
-  `npx firebase deploy --only functions:refineText` has never run. Neither AI
-  button has ever been exercised against the live API — model name, request
-  shape and both buttons are all unverified. `MODEL` is a one-line constant.
-- **`initialisePayment` and `paystackWebhook` are not deployed either**, and
-  there is no payment screen. `@react-native-firebase/functions@24.0.0` is now
-  installed, which is what a payment screen would need.
+- **All five functions are deployed and the AI assistant works.** `MODEL` is
+  `gemini-3.7-flash`; `gemini-2.0-flash` was retired days after being written
+  and returned 404. When it happens again the symptom is "assistant
+  unavailable" on the phone plus a 404 in the logs naming the dead id, and the
+  fix is that one constant.
+- **`PAYSTACK_SECRET_KEY` now holds a real test key.** It briefly held the
+  string `placeholder`, because the CLI validates *every* declared param before
+  deploying anything — an unset secret in `payments.js` blocks a deploy of an
+  unrelated function.
+- **Paystack is in TEST MODE and the profile is under review.** Test keys take
+  test cards only; no real tenant can pay. Do not invite real users to transact.
+- **There is no payout path.** Money lands in the Paystack balance and nothing
+  releases rent to the owner. This is the most serious gap in the money story
+  and it is a build, not a setting. Going live also needs a new secret version,
+  a redeploy, **and the webhook URL registered separately on the live side** —
+  test and live webhooks are configured independently.
+- **The payment confirmation screen has never been seen.** The webhook was
+  confirmed in the logs, but the `waiting → done` transition was lost because a
+  Fast Refresh remounted the navigator mid-checkout. Needs an accepted enquiry
+  to reach again.
+- **The tenancy agreement clauses are not lawyer-settled.** Nobody should sign
+  one until a Nigerian lawyer has read it.
 - **The tenancy agreement screen has never run.** No accepted enquiry exists on
   the test account, so the screen and the PDF are unverified on hardware.
 - **Tour contact / escalation UI has never rendered** for the same reason.
@@ -366,6 +396,15 @@ The tenancy agreement screen and PDF, the tour contact/escalation UI, the
 resend-a-decline button, both AI buttons, the power band and house rules on a
 published listing. §9.15 still applies.
 
+### The catalogue was emptied on 15 August
+
+Every listing document and its subcollections were deleted with
+`firestore:delete listings --recursive`, ahead of a three-account test run.
+**Two things that delete did not touch:** the photographs in Storage under
+`listings/{uid}/...`, which are now orphaned and still billed, and the
+conversations, applications and the one test payment, which now point at
+listings that no longer exist and will read as broken threads.
+
 ### Test data that must be cleaned before the 29th
 
 - A ₦9,000,000/year listing whose photos are selfies.
@@ -376,8 +415,12 @@ published listing. §9.15 still applies.
   a tour.
 
 ### Recommended next work, in order
-1. **Deploy `refineText`** and test both AI buttons. One command, currently the
-   only thing between a built feature and a working one.
+1. **The three-account walkthrough** — staff, landlord, tenant. Everything
+   still unverified is blocked behind one missing thing: no conversation exists
+   where the test account is the *owner*, so acceptance has never been
+   exercised, and acceptance gates payment, the agreement and the confirmation
+   screen. Order matters: verify the landlord's email before listing, and
+   enquire through the form rather than sending a plain message.
 2. **Demo data.** Real photographs on the seeded listings and the junk deleted.
    The biggest visible gap and it needs no engineering.
 3. **One real 360 tour**, shot and attached, so the differentiator is shown
