@@ -241,6 +241,22 @@ export default function ChatScreen({ route }: Props) {
                   navigation.navigate('Agreement', { conversationId: conversation.id })
                 }
               />
+              {/* Only the tenant pays, and only once the owner has said yes.
+                  An owner seeing a Pay button on their own property would be
+                  bewildering, and paying before acceptance is paying for
+                  something nobody has agreed to let you have. */}
+              {!isOwner && (
+                <>
+                  <View style={styles.agreementSpacer} />
+                  <Button
+                    label="Pay rent and deposit"
+                    onPress={() =>
+                      navigation.navigate('Payment', { listingId: conversation.listingId })
+                    }
+                    feedback="medium"
+                  />
+                </>
+              )}
             </View>
           </>
         )}
@@ -381,6 +397,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   agreement: { marginTop: spacing.sm },
+  agreementSpacer: { height: spacing.sm },
   suggestion: {
     backgroundColor: colors.backgroundPaper,
     borderWidth: 1,

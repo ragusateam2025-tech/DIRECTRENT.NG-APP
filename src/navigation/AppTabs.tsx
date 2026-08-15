@@ -14,6 +14,7 @@ import MessagesScreen from '../screens/MessagesScreen';
 import TourScreen from '../screens/TourScreen';
 import TourQueueScreen from '../screens/staff/TourQueueScreen';
 import AgreementScreen from '../screens/AgreementScreen';
+import PaymentScreen from '../screens/PaymentScreen';
 import ChatScreen from '../screens/ChatScreen';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -30,6 +31,7 @@ export type BrowseStackParams = {
   Apply: { listingId: string };
   Chat: { conversationId: string };
   Agreement: { conversationId: string };
+  Payment: { listingId: string };
   Tour: { embedUrl: string; title: string };
 };
 
@@ -40,6 +42,7 @@ export type LandlordStackParams = {
   Apply: { listingId: string };
   Chat: { conversationId: string };
   Agreement: { conversationId: string };
+  Payment: { listingId: string };
   // An owner should be able to see the tour of their own property — it is the
   // only way they can check what was shot before a tenant does.
   Tour: { embedUrl: string; title: string };
@@ -49,6 +52,7 @@ export type MessagesStackParams = {
   MessagesList: undefined;
   Chat: { conversationId: string };
   Agreement: { conversationId: string };
+  Payment: { listingId: string };
 };
 
 export type ProfileStackParams = {
@@ -102,6 +106,11 @@ function BrowseStack() {
         options={{ title: 'Tenancy agreement' }}
       />
       <Stack.Screen
+        name="Payment"
+        component={PaymentScreen}
+        options={{ title: 'Payment' }}
+      />
+      <Stack.Screen
         name="Tour"
         component={TourScreen}
         options={({ route }) => ({ title: route.params.title })}
@@ -127,6 +136,11 @@ function MessagesFlow() {
         name="Agreement"
         component={AgreementScreen}
         options={{ title: 'Tenancy agreement' }}
+      />
+      <MessagesStack.Screen
+        name="Payment"
+        component={PaymentScreen}
+        options={{ title: 'Payment' }}
       />
     </MessagesStack.Navigator>
   );
@@ -190,6 +204,11 @@ function LandlordFlow() {
         name="Agreement"
         component={AgreementScreen}
         options={{ title: 'Tenancy agreement' }}
+      />
+      <LandlordStack.Screen
+        name="Payment"
+        component={PaymentScreen}
+        options={{ title: 'Payment' }}
       />
       <LandlordStack.Screen
         name="Tour"
