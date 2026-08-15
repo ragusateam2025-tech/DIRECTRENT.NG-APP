@@ -260,6 +260,29 @@ export default function ChatScreen({ route }: Props) {
             </View>
           </>
         )}
+        {/*
+          Shown rather than hidden while the enquiry is still pending.
+
+          The button used to simply not exist until the owner accepted, which
+          from the tenant's side is indistinguishable from a broken app — they
+          are ready to pay, there is nowhere to pay, and nothing says why. A
+          disabled control with the reason on it is a path they can see, and it
+          tells them what has to happen next and who has to do it.
+
+          Tenant only, and only while an enquiry is actually outstanding. An
+          owner does not pay, and a thread that began as a plain message has
+          nothing to accept.
+        */}
+        {!isOwner && conversation.applicationStatus === 'pending' && (
+          <View style={styles.agreement}>
+            <Button label="Pay rent and deposit" disabled onPress={() => {}} />
+            <Text style={styles.pendingNote}>
+              The owner needs to accept your enquiry first. You will be able to
+              pay here once they do.
+            </Text>
+          </View>
+        )}
+
         {conversation.applicationStatus === 'declined' && (
           <Text style={styles.outcome}>Enquiry declined</Text>
         )}
@@ -398,6 +421,13 @@ const styles = StyleSheet.create({
   },
   agreement: { marginTop: spacing.sm },
   agreementSpacer: { height: spacing.sm },
+  pendingNote: {
+    color: colors.textMuted,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    lineHeight: 20,
+    marginTop: spacing.xs,
+  },
   suggestion: {
     backgroundColor: colors.backgroundPaper,
     borderWidth: 1,
