@@ -295,8 +295,35 @@ export type TourProvider = 'kuula' | 'directrent';
  */
 export type TourDecision = 'approved' | 'declined';
 
+/**
+ * Why a shoot was turned down, in the one dimension that changes what happens
+ * next: whether the owner can do anything about it.
+ *
+ * `area_not_covered` is about us, not them. No amount of tidying makes Ikorodu
+ * covered, so offering an "ask again" button would be inviting somebody to
+ * refuse them a second time — and a queue full of requests we will never
+ * approve is a queue nobody reads.
+ *
+ * Everything else is the owner's to fix and theirs to resubmit: a property
+ * mid-decoration, photographs that suggest it is not ready, a date that did not
+ * suit. Those are declines with a road back.
+ */
+export type DeclineReason = 'area_not_covered' | 'fixable';
+
 export interface TourReview {
   status: TourDecision;
+  /**
+   * When operations actually got in touch about arranging the visit.
+   *
+   * The signal behind "we have not heard from anybody". An approval creates an
+   * obligation to turn up, and without this the app could only guess whether it
+   * had been met — so the owner's support contact appears on a timer rather
+   * than on the facts.
+   *
+   * Set by staff from the queue. Absent means nobody has reached out yet, which
+   * after three working days is what opens the support line to the owner.
+   */
+  contactedAt?: string | null;
   /**
    * Why, in the operator's own words, shown to the owner.
    *
@@ -307,6 +334,14 @@ export interface TourReview {
    * the platform is not serious.
    */
   reason?: string;
+  /**
+   * Whether the owner may try again, on a decline.
+   *
+   * Absent on older declines and on approvals. Read defensively: an absent
+   * value is treated as fixable, because wrongly letting somebody ask again
+   * costs one queue row, and wrongly telling them never costs a customer.
+   */
+  declineKind?: DeclineReason | null;
   /** uid of the staff member who decided, so a decision has an author. */
   by: string;
   /** ISO timestamp of the decision. */
@@ -410,6 +445,18 @@ export interface Listing {
    * nothing at all.
    */
   tourReview?: TourReview | null;
+  /**
+   * When the owner said the shoot was overdue, as an ISO timestamp.
+   *
+   * The one tour field an owner may write, and the reason it is separate from
+   * `tourReview` rather than a flag on it: the review is operations' record and
+   * an owner who could edit it could approve their own shoot. Chasing us is
+   * theirs to do; deciding is not.
+   *
+   * The rules pin the value to the server clock, so it records when they
+   * actually complained rather than a date they chose.
+   */
+  tourEscalatedAt?: string | null;
   /**
    * House rules. Absent on listings written before the wizard asked.
    *

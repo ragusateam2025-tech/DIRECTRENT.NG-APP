@@ -52,6 +52,17 @@ import {
 } from '../services/analytics';
 import { ensureConversation } from '../services/messages';
 import { shareListing } from '../lib/shareListing';
+import {
+  canResendTourRequest,
+  escalateTourRequest,
+  resendTourRequest,
+} from '../services/tours';
+import { hasTourSupportPhone, TOUR_SUPPORT } from '../data/support';
+import {
+  daysUntilEscalation,
+  ESCALATION_DAYS,
+  mayEscalate,
+} from '../lib/businessDays';
 import type { Listing } from '../types';
 
 /**
@@ -100,6 +111,54 @@ export default function ListingDetailScreen({ route }: Props) {
   const [applied, setApplied] = useState(false);
   const [messaging, setMessaging] = useState(false);
   const [amenitiesOpen, setAmenitiesOpen] = useState(false);
+  const [escalating, setEscalating] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  /**
+   * Whether the shoot is overdue, and how long is left if not.
+   *
+   * `now` is taken once per render rather than read inside the helpers, so the
+   * countdown and the button cannot disagree about what day it is.
+   */
+  const now = new Date();
+  const approvedAt =
+    listing?.tourReview?.status === 'approved' && !listing?.tour
+      ? listing.tourReview.at
+      : null;
+  // Overdue means both things: the wait is unreasonable *and* nobody has
+  // actually made contact. Time alone would show a support line to an owner who
+  // was rung yesterday, and tell them nobody had been in touch.
+  const overdue =
+    mayEscalate(approvedAt, now) && !listing?.tourReview?.contactedAt;
+  const daysLeft = daysUntilEscalation(approvedAt, now);
+
+  async function handleResend() {
+    if (!listing || resending) return;
+    setResending(true);
+    try {
+      await resendTourRequest(listing.id);
+      setListing(await fetchListing(listing.id));
+    } catch (e: any) {
+      Alert.alert('Could not send it again', e?.message ?? String(e));
+    } finally {
+      setResending(false);
+    }
+  }
+
+  async function handleEscalate() {
+    if (!listing || escalating) return;
+    setEscalating(true);
+    try {
+      await escalateTourRequest(listing.id);
+      // Refetched rather than patched locally, so what is on screen is what
+      // was actually written.
+      setListing(await fetchListing(listing.id));
+    } catch (e: any) {
+      Alert.alert('Could not send that', e?.message ?? String(e));
+    } finally {
+      setEscalating(false);
+    }
+  }
 
   // Refetches on focus so returning from the enquiry form shows the sent state
   // without a manual reload.
@@ -544,6 +603,25 @@ export default function ListingDetailScreen({ route }: Props) {
                   minimum. If we then decline, this listing has no pictures and
                   nobody has told the owner — so this is where they are told,
                   and it is the one branch that asks them to do something. */}
+              {/* A way back, when there is one. A decline the owner can fix
+                  and no means of acting on it is how somebody decides the
+                  platform is not serious. */}
+              {canResendTourRequest(listing) ? (
+                <View style={styles.contactActions}>
+                  <Button
+                    label="Fixed it — ask again"
+                    variant="secondary"
+                    onPress={handleResend}
+                    loading={resending}
+                  />
+                </View>
+              ) : (
+                <Text style={styles.tourStatusBody}>
+                  We are not able to cover this area yet. We will say so here
+                  when that changes — there is nothing you need to do.
+                </Text>
+              )}
+
               {(listing.media?.photos?.length ?? 0) === 0 ? (
                 <Text style={styles.tourStatusAction}>
                   This listing has no photographs. Add some now — a property
@@ -557,10 +635,77 @@ export default function ListingDetailScreen({ route }: Props) {
               )}
             </>
           ) : listing.tourReview?.status === 'approved' ? (
-            <Text style={styles.tourStatusBody}>
-              Approved. We will be in touch to arrange a visit — have the
-              property clean and tidy before we arrive.
-            </Text>
+            <>
+              <Text style={styles.tourStatusBody}>
+                Approved. We will be in touch to arrange a visit — have the
+                property clean and tidy before we arrive.
+              </Text>
+
+              {/* The wait has a visible end. "We will be in touch" with no
+                  number attached is what makes somebody assume they have been
+                  forgotten. */}
+              {listing.tourReview.contactedAt ? (
+                <Text style={styles.tourStatusBody}>
+                  We have been in touch to arrange a time. Reply to that message
+                  if the day no longer suits you.
+                </Text>
+              ) : overdue ? (
+                <View style={styles.contact}>
+                  {/* Held back until the wait is genuinely unreasonable.
+                      Published on every approval this would become a general
+                      enquiries desk, and the people staffing it are the same
+                      ones who would then not be out shooting. */}
+                  <Text style={styles.tourStatusAction}>
+                    Nobody has contacted you in {ESCALATION_DAYS} working days.
+                    That is our failure, not yours.
+                  </Text>
+                  <Text style={styles.contactName}>Directrent 360 tours</Text>
+                  <View style={styles.contactActions}>
+                    {hasTourSupportPhone() && (
+                      <>
+                        <Button
+                          label={`Call ${formatNigerianPhone(TOUR_SUPPORT.phone)}`}
+                          variant="secondary"
+                          onPress={() =>
+                            Linking.openURL(`tel:${TOUR_SUPPORT.phone}`).catch(() => {})
+                          }
+                        />
+                        <View style={styles.actionSpacer} />
+                      </>
+                    )}
+                    <Button
+                      label={`Email ${TOUR_SUPPORT.email}`}
+                      variant="secondary"
+                      onPress={() =>
+                        Linking.openURL(
+                          `mailto:${TOUR_SUPPORT.email}?subject=${encodeURIComponent(
+                            `360 tour overdue — ${listing.location.address}`,
+                          )}`,
+                        ).catch(() => {})
+                      }
+                    />
+                    <View style={styles.actionSpacer} />
+                    {listing.tourEscalatedAt ? (
+                      <Text style={styles.tourStatusBody}>
+                        Flagged in our queue. Somebody will come back to you.
+                      </Text>
+                    ) : (
+                      <Button
+                        label="Flag this as overdue"
+                        onPress={handleEscalate}
+                        loading={escalating}
+                      />
+                    )}
+                  </View>
+                </View>
+              ) : (
+                <Text style={styles.tourStatusBody}>
+                  If nobody has been in touch within {daysLeft}{' '}
+                  {daysLeft === 1 ? 'working day' : 'working days'}, we will put
+                  our tours line here so you can chase it.
+                </Text>
+              )}
+            </>
           ) : (
             <Text style={styles.tourStatusBody}>
               Received. Nobody has looked at it yet — we will tell you either
@@ -971,6 +1116,18 @@ const styles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     lineHeight: 20,
   },
+  contact: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  contactName: {
+    color: colors.textPrimary,
+    fontFamily: typography.families.bodySemiBold,
+    fontSize: typography.sizes.base,
+  },
+  contactActions: { marginTop: spacing.sm },
   /** The one branch that asks the owner to do something, so it is not muted. */
   tourStatusAction: {
     color: colors.accentCoralLight,

@@ -22,6 +22,7 @@ import { primaryImageSource } from '../../lib/listingImage';
 import {
   attachTour,
   decideTourRequest,
+  markTourContacted,
   detachTour,
   fetchTourQueue,
   InvalidTourUrl,
@@ -30,7 +31,7 @@ import {
   type TourQueue,
 } from '../../services/tours';
 import { useAuth } from '../../context/AuthContext';
-import type { Listing } from '../../types';
+import type { DeclineReason, Listing } from '../../types';
 
 type Tab = 'new' | 'shoot' | 'done' | 'declined';
 
@@ -105,6 +106,9 @@ export default function TourQueueScreen() {
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // Defaults to the recoverable kind. The permanent one has to be chosen
+  // deliberately, because it is the answer with no way back.
+  const [declineKind, setDeclineKind] = useState<DeclineReason>('fixable');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -138,6 +142,7 @@ export default function TourQueueScreen() {
     setOpenId(null);
     setLink('');
     setReason('');
+    setDeclineKind('fixable');
     await load();
   }
 
@@ -147,7 +152,7 @@ export default function TourQueueScreen() {
     setBusy(true);
     setError('');
     try {
-      await decideTourRequest(listing.id, status, profile.uid, reason);
+      await decideTourRequest(listing.id, status, profile.uid, reason, declineKind);
       await done();
       Alert.alert(
         status === 'approved' ? 'Approved' : 'Declined',
@@ -210,6 +215,23 @@ export default function TourQueueScreen() {
     );
   }
 
+  /**
+   * Records that we have reached the owner about arranging the visit.
+   *
+   * This is what stops the owner's screen offering a support line and telling
+   * them nobody has been in touch. Without it the app would be guessing from
+   * elapsed time alone, and would be wrong about every owner who was called
+   * yesterday.
+   */
+  async function markContacted(listing: Listing) {
+    try {
+      await markTourContacted(listing.id);
+      await done();
+    } catch (e: any) {
+      Alert.alert('Could not record that', e?.message ?? String(e));
+    }
+  }
+
   async function reopen(listing: Listing) {
     try {
       await reopenTourRequest(listing.id);
@@ -248,6 +270,15 @@ export default function TourQueueScreen() {
             {/* The reason is on the row rather than hidden behind a tap. The
                 declined pile is read to remember why, and making somebody open
                 each card to find out defeats the point of keeping them. */}
+            {/* The owner said this is overdue. On the row, not behind a tap:
+                the point of a chase is that somebody sees it without looking
+                for it. */}
+            {!!item.tourEscalatedAt && (
+              <Text style={styles.overdue}>Owner says this is overdue</Text>
+            )}
+            {tab === 'shoot' && !!item.tourReview?.contactedAt && (
+              <Text style={styles.contacted}>Owner contacted</Text>
+            )}
             {tab === 'declined' && !!item.tourReview?.reason && (
               <Text style={styles.reason}>“{item.tourReview.reason}”</Text>
             )}
@@ -276,6 +307,32 @@ export default function TourQueueScreen() {
                   loading={busy}
                 />
                 <View style={styles.spacer} />
+                {/* Which decline this is decides whether the owner ever sees a
+                    way back. "We do not cover your area" is about us and no
+                    amount of tidying changes it; everything else is theirs to
+                    fix and resend. */}
+                <Text style={styles.kindLabel}>If declining, why?</Text>
+                <View style={styles.kinds}>
+                  <Pressable
+                    onPress={() => setDeclineKind('fixable')}
+                    style={[styles.kind, declineKind === 'fixable' && styles.kindOn]}
+                  >
+                    <Text style={styles.kindText}>
+                      Something they can fix — they may ask again
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setDeclineKind('area_not_covered')}
+                    style={[
+                      styles.kind,
+                      declineKind === 'area_not_covered' && styles.kindOn,
+                    ]}
+                  >
+                    <Text style={styles.kindText}>
+                      We do not cover this area — final
+                    </Text>
+                  </Pressable>
+                </View>
                 <Button
                   label="Decline"
                   variant="secondary"
@@ -305,6 +362,19 @@ export default function TourQueueScreen() {
                   Open the tour in Kuula, press Share, copy the link and paste it
                   here. Paste the whole thing, including https.
                 </Text>
+                {/* Before the link, because it happens first: an operator
+                    rings the owner to arrange a day, then shoots, then
+                    pastes. */}
+                {tab === 'shoot' && !item.tourReview?.contactedAt && (
+                  <>
+                    <Button
+                      label="I have contacted the owner"
+                      variant="secondary"
+                      onPress={() => markContacted(item)}
+                    />
+                    <View style={styles.spacer} />
+                  </>
+                )}
                 <Button label="Save tour" onPress={() => save(item)} loading={busy} />
                 {!!item.tour && (
                   <>
@@ -428,6 +498,39 @@ const styles = StyleSheet.create({
     fontFamily: typography.families.body,
     fontSize: typography.sizes.xs,
     marginTop: 2,
+  },
+  overdue: {
+    color: colors.accentCoralLight,
+    fontFamily: typography.families.bodySemiBold,
+    fontSize: typography.sizes.sm,
+    marginTop: spacing.xs,
+  },
+  kindLabel: {
+    color: colors.accentGold,
+    fontFamily: typography.families.bodyMedium,
+    fontSize: typography.sizes.xs,
+    marginBottom: spacing.xs,
+  },
+  kinds: { marginBottom: spacing.md },
+  kind: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.control,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  kindOn: { borderColor: colors.accentGold, backgroundColor: colors.backgroundElevated },
+  kindText: {
+    color: colors.textSecondary,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+  },
+  contacted: {
+    color: colors.textMuted,
+    fontFamily: typography.families.body,
+    fontSize: typography.sizes.sm,
+    marginTop: spacing.xs,
   },
   reason: {
     color: colors.accentGold,

@@ -1,9 +1,17 @@
-import { collection, doc, getDocs, query, updateDoc, where } from '@react-native-firebase/firestore';
+import {
+  collection,
+  doc,
+  getDocs,
+  query,
+  updateDoc,
+  where,
+} from '@react-native-firebase/firestore';
 import { db, COLLECTIONS } from '../lib/firebase';
 import { partitionTourQueue, type TourQueue } from '../lib/tourQueue';
 import type {
   Listing,
   ListingTour,
+  DeclineReason,
   TourDecision,
   TourProvider,
   TourReview,
@@ -59,6 +67,7 @@ export async function decideTourRequest(
   status: TourDecision,
   staffUid: string,
   reason?: string,
+  declineKind: DeclineReason = 'fixable',
 ): Promise<TourReview> {
   const trimmed = reason?.trim();
 
@@ -75,6 +84,11 @@ export async function decideTourRequest(
     // Only on a decline. Carrying an approval's stray note onto the listing
     // would show the owner a comment nobody wrote for them.
     ...(status === 'declined' && trimmed ? { reason: trimmed } : {}),
+    // Only on a decline, and it decides whether the owner is offered a way
+    // back. Defaulting to fixable is the safe direction: wrongly letting
+    // somebody ask again costs one row in a queue, wrongly telling them never
+    // costs a customer.
+    ...(status === 'declined' ? { declineKind } : {}),
   };
 
   await updateDoc(doc(db, COLLECTIONS.listings, listingId), { tourReview: review });
@@ -91,6 +105,69 @@ export async function decideTourRequest(
  */
 export async function reopenTourRequest(listingId: string): Promise<void> {
   await updateDoc(doc(db, COLLECTIONS.listings, listingId), { tourReview: null });
+}
+
+/**
+ * Whether a declined request may be sent again.
+ *
+ * Absent means yes. Older declines carry no category, and the generous reading
+ * is the right one for the same reason the default is.
+ */
+export function canResendTourRequest(listing: Listing): boolean {
+  const review = listing.tourReview;
+  if (!review || review.status !== 'declined') return false;
+  return review.declineKind !== 'area_not_covered';
+}
+
+/**
+ * Clears a declined decision so the request is new again.
+ *
+ * Written by the owner, and the rules allow it only when the decline was a
+ * fixable one — an area we do not cover stays declined however many times
+ * somebody taps. That check lives in firestore.rules as well as here, because
+ * this one is a button and that one is the boundary.
+ */
+export async function resendTourRequest(listingId: string): Promise<void> {
+  await updateDoc(doc(db, COLLECTIONS.listings, listingId), {
+    tourReview: null,
+    tourEscalatedAt: null,
+  });
+}
+
+/**
+ * Records that operations has been in touch about arranging the visit.
+ *
+ * The signal the owner's screen reads to decide whether anybody has actually
+ * made contact. Without it, "we have not heard from you" would be a guess based
+ * on elapsed time, and an owner who had been called yesterday would still be
+ * shown a support line and told nobody had been in touch.
+ */
+export async function markTourContacted(listingId: string): Promise<void> {
+  await updateDoc(doc(db, COLLECTIONS.listings, listingId), {
+    'tourReview.contactedAt': new Date().toISOString(),
+  });
+}
+
+/**
+ * Records that the owner says the shoot is overdue.
+ *
+ * Written by the owner, which is why it is its own field rather than a flag on
+ * `tourReview` — an owner who could write the review could approve their own
+ * shoot. Chasing us is theirs to do; deciding is not.
+ *
+ * A device clock, deliberately, and nothing depends on its accuracy. The three
+ * working days are counted from `tourReview.at`, which staff wrote — this field
+ * only records that a complaint was made, so a wrong phone clock costs nothing
+ * and pinning it to the server would buy nothing.
+ *
+ * Worth being plain about: the three-day threshold is a product rule, not a
+ * security boundary. Somebody determined to write this field early can, and
+ * what they gain is a flag on their own request in our queue.
+ */
+export async function escalateTourRequest(listingId: string): Promise<void> {
+  await updateDoc(doc(db, COLLECTIONS.listings, listingId), {
+    tourEscalatedAt: new Date().toISOString(),
+  });
 }
 
 /**

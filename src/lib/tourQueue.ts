@@ -41,5 +41,12 @@ export function partitionTourQueue(listings: Listing[]): TourQueue {
     }
   }
 
+  // Chased requests go to the top of the pile they are in. An escalation that
+  // sorts in with everything else is an escalation nobody sees, which is worse
+  // than not offering one — the owner is told it was flagged.
+  queue.approved.sort(
+    (a, b) => Number(!!b.tourEscalatedAt) - Number(!!a.tourEscalatedAt),
+  );
+
   return queue;
 }

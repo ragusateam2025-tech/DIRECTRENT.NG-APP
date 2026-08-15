@@ -390,6 +390,119 @@ describe('listings — staff attaching tours', () => {
     await assertSucceeds(updateDoc(doc(db, 'listings/l1'), { tour: null }));
   });
 
+  it('lets staff record that they contacted the owner', async () => {
+    // A nested write to tourReview. affectedKeys reports the top-level field,
+    // so this has to clear the same hasOnly gate as a whole-review write.
+    await seedStaffAndListing();
+
+    const db = testEnv.authenticatedContext(STAFF).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'listings/l1'), { 'tourReview.contactedAt': '2026-08-15T09:00:00Z' }),
+    );
+  });
+
+  it('lets the owner flag their own shoot as overdue', async () => {
+    // The one tour-related field an owner may write. If this were refused the
+    // escalation button would fail silently, which is the failure mode this
+    // whole feature exists to prevent.
+    await seedStaffAndListing();
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'listings/l1'), { tourEscalatedAt: '2026-08-15T09:00:00Z' }),
+    );
+  });
+
+  it('still refuses an owner marking themselves as contacted', async () => {
+    // Escalating is theirs; deciding and reporting are not. An owner who could
+    // write contactedAt could close their own complaint.
+    await seedStaffAndListing();
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'listings/l1'), { 'tourReview.contactedAt': '2026-08-15T09:00:00Z' }),
+    );
+  });
+
+  it('refuses a stranger flagging somebody else’s shoot as overdue', async () => {
+    await seedStaffAndListing();
+
+    const db = testEnv.authenticatedContext(STRANGER).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'listings/l1'), { tourEscalatedAt: '2026-08-15T09:00:00Z' }),
+    );
+  });
+
+  async function seedDecline(declineKind) {
+    await seedStaffAndListing();
+    await seed(db =>
+      updateDoc(doc(db, 'listings/l1'), {
+        tourReview: { status: 'declined', reason: 'Not yet', by: STAFF, at: '1', declineKind },
+      }),
+    );
+  }
+
+  it('lets an owner send a fixable decline again', async () => {
+    await seedDecline('fixable');
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'listings/l1'), { tourReview: null, tourEscalatedAt: null }),
+    );
+  });
+
+  it('refuses resending when the area is not covered', async () => {
+    // No amount of tidying makes Ikorodu covered. Offering a way back would be
+    // inviting somebody to be refused twice.
+    await seedDecline('area_not_covered');
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'listings/l1'), { tourReview: null, tourEscalatedAt: null }),
+    );
+  });
+
+  it('treats an old decline with no category as fixable', async () => {
+    // Every decline written before the category existed. The generous reading
+    // is the right one: wrongly allowing a retry costs one queue row.
+    await seedStaffAndListing();
+    await seed(db =>
+      updateDoc(doc(db, 'listings/l1'), {
+        tourReview: { status: 'declined', reason: 'Not yet', by: STAFF, at: '1' },
+      }),
+    );
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertSucceeds(
+      updateDoc(doc(db, 'listings/l1'), { tourReview: null, tourEscalatedAt: null }),
+    );
+  });
+
+  it('refuses an owner clearing an approval through the same door', async () => {
+    // The carve-out is for declines only. Clearing an approval would let an
+    // owner wipe the record of a shoot that was already agreed.
+    await seedStaffAndListing();
+    await seed(db =>
+      updateDoc(doc(db, 'listings/l1'), {
+        tourReview: { status: 'approved', by: STAFF, at: '1' },
+      }),
+    );
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertFails(updateDoc(doc(db, 'listings/l1'), { tourReview: null }));
+  });
+
+  it('refuses an owner writing a decision while pretending to resend', async () => {
+    await seedDecline('fixable');
+
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertFails(
+      updateDoc(doc(db, 'listings/l1'), {
+        tourReview: { status: 'approved', by: OWNER, at: '2' },
+      }),
+    );
+  });
+
   it('lets staff attach a tour and its approval in one write', async () => {
     await seedStaffAndListing();
 
@@ -424,16 +537,27 @@ describe('listings — staff attaching tours', () => {
     );
   });
 
-  it('refuses an owner erasing a decline', async () => {
+  it('refuses an owner rewriting what a decline said', async () => {
+    // Clearing a fixable decline to ask again is allowed — see below. Editing
+    // the decision itself is not: an owner who could reword a decline could
+    // turn "we do not cover your area" into something they may resend.
     await seedStaffAndListing();
     await seed(db =>
       updateDoc(doc(db, 'listings/l1'), {
-        tourReview: { status: 'declined', reason: 'Not yet', by: STAFF, at: '1' },
+        tourReview: {
+          status: 'declined',
+          reason: 'We do not cover Ikorodu yet',
+          by: STAFF,
+          at: '1',
+          declineKind: 'area_not_covered',
+        },
       }),
     );
 
     const db = testEnv.authenticatedContext(OWNER).firestore();
-    await assertFails(updateDoc(doc(db, 'listings/l1'), { tourReview: null }));
+    await assertFails(
+      updateDoc(doc(db, 'listings/l1'), { 'tourReview.declineKind': 'fixable' }),
+    );
   });
 
   it('refuses an owner pointing the tour at their own address', async () => {

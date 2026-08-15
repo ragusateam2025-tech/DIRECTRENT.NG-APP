@@ -109,11 +109,34 @@ service cloud.firestore {
       // hasAny, not hasOnly: this refuses a write that touches either field
       // whatever else it carries, so the fields cannot be smuggled in alongside
       // a legitimate description change.
+      //
+      // One exception, and only one: clearing a decline they are allowed to
+      // fix. Sending the request again means putting it back to undecided,
+      // which is a write to tourReview — so the carve-out has to open just wide
+      // enough for that and nothing else.
+      //
+      // The decline must be fixable. An area we do not cover stays declined
+      // however many times somebody taps, because no amount of tidying makes
+      // Ikorodu covered and a queue full of requests we will never approve is a
+      // queue nobody reads. An absent category reads as fixable, matching the
+      // app: wrongly allowing a retry costs one row, wrongly refusing one costs
+      // a customer.
+      function resendingAFixableDecline() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['tourReview', 'tourEscalatedAt'])
+               && request.resource.data.get('tourReview', null) == null
+               && resource.data.get('tourReview', {}).get('status', '') == 'declined'
+               && resource.data.tourReview.get('declineKind', 'fixable') != 'area_not_covered';
+      }
+
       allow update: if request.auth != null
                     && resource.data.ownerId == request.auth.uid
                     && request.resource.data.ownerId == resource.data.ownerId
-                    && !request.resource.data.diff(resource.data).affectedKeys()
-                         .hasAny(['tour', 'tourReview']);
+                    && (
+                      !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['tour', 'tourReview'])
+                      || resendingAFixableDecline()
+                    );
 
       // Delete is separate, and has to be.
       //
