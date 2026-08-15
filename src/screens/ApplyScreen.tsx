@@ -14,14 +14,12 @@ import { calculateSavings } from '../lib/savings';
 import {
   submitApplication,
   MOVE_IN_LABELS,
-  LEASE_LABELS,
 } from '../services/applications';
 import { fetchListing } from '../services/listings';
 import { useAuth } from '../context/AuthContext';
 import type { Listing, MoveInTiming, LeaseDuration } from '../types';
 
 const MOVE_IN_OPTIONS = Object.keys(MOVE_IN_LABELS) as MoveInTiming[];
-const LEASE_OPTIONS: LeaseDuration[] = [6, 12, 24];
 
 export default function ApplyScreen() {
   const { profile, refreshVerification, resendVerification } = useAuth();
@@ -31,7 +29,20 @@ export default function ApplyScreen() {
 
   const [listing, setListing] = useState<Listing | null>(null);
   const [moveIn, setMoveIn] = useState<MoveInTiming>('within_month');
-  const [leaseMonths, setLeaseMonths] = useState<LeaseDuration>(12);
+  /**
+   * Not asked, and fixed at a year.
+   *
+   * Housing in Lagos is not something people take on lightly and leave. Nobody
+   * moves out early by choice — they move out because the compound floods, the
+   * area turns, or the owner is impossible. Asking somebody to commit to a term
+   * before they have seen the place is asking a question whose only honest
+   * answer is "as long as it works out".
+   *
+   * The field stays on the model because the tenancy agreement and the
+   * listing's minimum-lease filter both use it, and because removing it from
+   * every stored application would be a migration for no gain.
+   */
+  const leaseMonths: LeaseDuration = 12;
   const [occupants, setOccupants] = useState('2');
   const [message, setMessage] = useState('');
   const [polishing, setPolishing] = useState(false);
@@ -207,18 +218,6 @@ export default function ApplyScreen() {
               label={MOVE_IN_LABELS[option]}
               selected={moveIn === option}
               onPress={() => setMoveIn(option)}
-            />
-          ))}
-        </View>
-
-        <Text style={styles.label}>How long do you want to rent for?</Text>
-        <View style={styles.chips}>
-          {LEASE_OPTIONS.map(option => (
-            <Chip
-              key={option}
-              label={LEASE_LABELS[option]}
-              selected={leaseMonths === option}
-              onPress={() => setLeaseMonths(option)}
             />
           ))}
         </View>

@@ -127,12 +127,11 @@ export async function submitApplication(
  */
 function enquirySummary(application: Application): string {
   const when = MOVE_IN_LABELS[application.moveIn].toLowerCase();
-  const term = LEASE_LABELS[application.leaseMonths].toLowerCase();
   const people = application.occupants === 1 ? '1 occupant' : `${application.occupants} occupants`;
 
   const opening =
     `Hello — I am interested in ${application.listingTitle}. ` +
-    `Looking to move in ${when}, for ${term}, with ${people}.`;
+    `Looking to move in ${when}, with ${people}.`;
 
   return application.message ? `${opening}\n\n${application.message}` : opening;
 }
